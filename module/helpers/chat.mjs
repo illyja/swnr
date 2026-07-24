@@ -3,6 +3,9 @@ export function chatListeners(message, html) {
   html.on("click", "button.dmgroll", (event) => _onDmgRollClick.call(this, event, message));
 
   html.on("click", ".card-buttons button", _onChatCardAction.bind(this));
+  // Targeted-power apply buttons (rendered inside the per-target table, not .card-buttons)
+  html.on("click", "button[data-action='apply-target'], button[data-action='apply-all']",
+    (event) => _onTargetApplyClick(event, message));
   // Add reroll buttons to all dice rolls
   html.find(".roll").each((_i, div) => {
     _addRerollButton($(div));
@@ -275,6 +278,24 @@ export async function showValueChange(
     );
   // v10
   else t.hud.createScrollingText(`${total * -1}`, floaterData); // v9
+}
+
+/**
+ * Click handler for the per-target Apply / Apply-all buttons on a power card.
+ * Delegates to the targeting module (dynamic import avoids an import cycle).
+ */
+async function _onTargetApplyClick(event, message) {
+  event.preventDefault();
+  event.stopPropagation();
+  const button = event.currentTarget;
+  if (!message) return;
+  const mod = await import("./power-targeting.mjs");
+  if (button.dataset.action === "apply-target") {
+    const index = parseInt(button.dataset.targetIndex);
+    await mod.applyTargetFromButton(message, index);
+  } else if (button.dataset.action === "apply-all") {
+    await mod.applyAllFromButton(message);
+  }
 }
 
 export async function applyHealthDrop(total, tokens = null) {

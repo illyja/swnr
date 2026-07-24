@@ -115,11 +115,12 @@ async function applyTargetRow(row) {
 /**
  * After the power's chat message exists, apply each resolved target row.
  * Runs once, on the triggering user's client. Owned targets are applied
- * directly; others are left as manual (a GM relay is added later).
+ * directly; others are routed to the active GM for approval (falling back to a
+ * manual Apply button when there is no active GM).
  * @param {ChatMessage} message
- * @param {Item} _power - reserved for later phases
+ * @param {Item} power - the power item
  */
-export async function applyPowerResults(message, _power) {
+export async function applyPowerResults(message, power) {
   const rows = message.getFlag("swnr", "targetResults");
   if (!Array.isArray(rows) || !rows.length) return;
 
@@ -136,8 +137,8 @@ export async function applyPowerResults(message, _power) {
       row.status = "applied";
       changed = true;
     } else {
-      // Later phase: request GM approval via socket. For now, offer a manual button.
-      row.status = "manual";
+      // Ask the active GM to approve; sets status awaitingGM or manual (no GM).
+      requestGMApply(row, message, power);
       changed = true;
     }
   }
@@ -195,4 +196,152 @@ export async function rerenderPowerCard(message) {
 
   const content = await foundry.applications.handlebars.renderTemplate(POWER_CARD_TEMPLATE, templateData);
   await message.update({ content });
+}
+
+/* -------------------------------------------- */
+/* GM approval relay                            */
+/* -------------------------------------------- */
+
+const SOCKET_NAME = "system.swnr";
+const SOCKET_APPLY_REQUEST = "swnr.applyPowerRequest";
+
+/** Register the system socket listener. Call once at `ready`. */
+export function registerPowerSocket() {
+  game.socket.on(SOCKET_NAME, onPowerSocket);
+}
+
+async function onPowerSocket(msg) {
+  if (!msg || msg.type !== SOCKET_APPLY_REQUEST) return;
+  // Only the single active GM that the request is addressed to acts on it.
+  const activeGM = game.users?.activeGM;
+  if (!game.user.isGM || !activeGM || activeGM.id !== game.user.id || msg.gmUserId !== game.user.id) return;
+  await handleGMApplyRequest(msg);
+}
+
+function describeSave(save) {
+  if (!save) return game.i18n.localize("swnr.power.saveResult.none");
+  return game.i18n.format(
+    save.success ? "swnr.power.saveResult.success" : "swnr.power.saveResult.failure",
+    { total: save.total, target: save.target }
+  );
+}
+
+/**
+ * Ask the active GM to approve applying a row to a target the caster can't
+ * modify. Sets the row status (awaitingGM, or manual if no active GM) and emits
+ * the request. The GM updates the message directly when it responds.
+ */
+function requestGMApply(row, message, power) {
+  const gm = game.users?.activeGM;
+  if (!gm) {
+    row.status = "manual";
+    return;
+  }
+  row.status = "awaitingGM";
+  game.socket.emit(SOCKET_NAME, {
+    type: SOCKET_APPLY_REQUEST,
+    gmUserId: gm.id,
+    fromUserId: game.user.id,
+    messageId: message.id,
+    sceneId: row.sceneId,
+    tokenId: row.tokenId,
+    amount: row.amount,
+    effects: row.effects ?? [],
+    casterName: power?.actor?.name ?? null,
+    targetName: row.name,
+    effectLabel: row.amountLabel,
+    saveText: describeSave(row.save),
+  });
+}
+
+/** GM side: prompt to approve/deny, then apply and update the card. */
+async function handleGMApplyRequest(msg) {
+  const message = game.messages?.get(msg.messageId);
+  const approved = await foundry.applications.api.DialogV2.confirm({
+    window: { title: game.i18n.localize("swnr.power.gmApply.title") },
+    content: `<p>${foundry.utils.escapeHTML(
+      game.i18n.format("swnr.power.gmApply.prompt", {
+        caster: msg.casterName ?? "?",
+        target: msg.targetName ?? "?",
+        effect: msg.effectLabel ?? "",
+        save: msg.saveText ?? "",
+      })
+    )}</p>`,
+    rejectClose: false,
+    modal: false,
+  });
+
+  if (!message) return;
+
+  let snapshot = null;
+  if (approved) {
+    const token = resolveToken(msg.sceneId, msg.tokenId);
+    if (token && msg.amount !== 0) {
+      const res = await applyHealthDropToToken(token, msg.amount);
+      snapshot = res?.snapshot ?? null;
+    }
+    // ActiveEffect application to the target is added in a later phase.
+  }
+
+  // GMs can update any chat message; reflect the outcome for all clients.
+  const rows = foundry.utils.deepClone(message.flags?.swnr?.targetResults ?? []);
+  const row = rows.find((r) => r.tokenId === msg.tokenId && r.status === "awaitingGM");
+  if (row) {
+    row.status = approved ? "applied" : "manual";
+    if (approved) row.snapshot = snapshot;
+    await message.setFlag("swnr", "targetResults", rows);
+    await rerenderPowerCard(message);
+  }
+
+  ui.notifications?.info(
+    game.i18n.format(approved ? "swnr.power.gmApply.approved" : "swnr.power.gmApply.denied", {
+      gm: game.user.name,
+      effect: msg.effectLabel ?? "",
+      target: msg.targetName ?? "",
+    })
+  );
+}
+
+/* -------------------------------------------- */
+/* Manual Apply buttons                         */
+/* -------------------------------------------- */
+
+/** Apply a single row from its Apply button (owner/GM directly, else GM relay). */
+export async function applyTargetFromButton(message, index) {
+  const rows = foundry.utils.deepClone(message.flags?.swnr?.targetResults ?? []);
+  const row = rows[index];
+  if (!row || (row.status !== "manual" && row.status !== "pending")) return;
+
+  const actor = game.actors.get(row.actorId);
+  if ((actor?.isOwner ?? false) || game.user.isGM) {
+    await applyTargetRow(row);
+    row.status = "applied";
+  } else {
+    const power = message.flags?.swnr?.powerUuid ? await fromUuid(message.flags.swnr.powerUuid) : null;
+    requestGMApply(row, message, power);
+  }
+  await message.setFlag("swnr", "targetResults", rows);
+  await rerenderPowerCard(message);
+}
+
+/** Apply every still-manual row. */
+export async function applyAllFromButton(message) {
+  const rows = foundry.utils.deepClone(message.flags?.swnr?.targetResults ?? []);
+  const power = message.flags?.swnr?.powerUuid ? await fromUuid(message.flags.swnr.powerUuid) : null;
+  let changed = false;
+  for (const row of rows) {
+    if (row.status !== "manual" && row.status !== "pending") continue;
+    const actor = game.actors.get(row.actorId);
+    if ((actor?.isOwner ?? false) || game.user.isGM) {
+      await applyTargetRow(row);
+      row.status = "applied";
+    } else {
+      requestGMApply(row, message, power);
+    }
+    changed = true;
+  }
+  if (changed) {
+    await message.setFlag("swnr", "targetResults", rows);
+    await rerenderPowerCard(message);
+  }
 }
