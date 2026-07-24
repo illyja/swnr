@@ -144,6 +144,8 @@
     </div>
   {{/if}}
 
+  {{! Manual save button is redundant once saves auto-roll per target }}
+  {{#unless targetResults}}
   {{#if power.system.save}}
   <div class="card-buttons">
       <button data-action="save" data-save="{{power.system.save}}">
@@ -151,6 +153,7 @@
       </button>
   </div>
   {{/if}}
+  {{/unless}}
 
   {{#if power.system.skill}}
   <div class="card-buttons">

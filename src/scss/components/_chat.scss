@@ -541,3 +541,74 @@
     font-size: 0.9em;
   }
 }
+
+// Targeted-power per-target results table (power-usage chat card)
+.power-targets {
+  margin: 0.4rem 0;
+
+  .power-targets-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+
+    th,
+    td {
+      padding: 0.15rem 0.35rem;
+      text-align: left;
+      border-bottom: 1px solid var(--color-border-light-tertiary, rgba(0, 0, 0, 0.15));
+    }
+
+    th {
+      font-weight: bold;
+      opacity: 0.8;
+    }
+
+    .target-effect {
+      white-space: nowrap;
+    }
+
+    .target-save {
+      white-space: nowrap;
+
+      .fa-shield-halved {
+        color: #2e8b57;
+      }
+
+      .fa-burst {
+        color: #b03030;
+      }
+    }
+
+    button {
+      width: auto;
+      font-size: 0.9em;
+      line-height: 1.5;
+      padding: 0 0.4rem;
+    }
+
+    .target-gm-controls {
+      margin-left: 0.25rem;
+      white-space: nowrap;
+
+      button {
+        padding: 0 0.3rem;
+        opacity: 0.75;
+
+        &:hover {
+          opacity: 1;
+        }
+      }
+    }
+  }
+
+  .power-targets-footer {
+    margin-top: 0.35rem;
+    text-align: right;
+
+    button {
+      width: auto;
+      font-size: 0.85em;
+      padding: 0 0.5rem;
+    }
+  }
+}
