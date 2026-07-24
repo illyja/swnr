@@ -454,6 +454,18 @@ export async function revertAllFromButton(message) {
   }
 }
 
+/** GM-only: re-apply a reverted row exactly as it was (no re-roll). */
+export async function reapplyFromButton(message, index) {
+  if (!game.user.isGM) return;
+  const rows = foundry.utils.deepClone(message.flags?.swnr?.targetResults ?? []);
+  const row = rows[index];
+  if (!row || row.status !== "reverted") return;
+  await applyTargetRow(row); // re-applies the stored amount + effects, captures a fresh snapshot
+  row.status = "applied";
+  await message.setFlag("swnr", "targetResults", rows);
+  await rerenderPowerCard(message);
+}
+
 /** GM-only: re-roll a row's save, recompute the amount/effects, and re-apply. */
 export async function rerollFromButton(message, index) {
   if (!game.user.isGM) return;

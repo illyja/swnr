@@ -134,6 +134,12 @@
                   <button type="button" data-action="apply-target" data-target-index="{{@index}}">
                     {{localize "swnr.power.apply"}}
                   </button>
+                {{else if (eq status "reverted")}}
+                  <span class="gm-only target-gm-controls">
+                    <button type="button" class="target-reapply" data-action="reapply-target" data-target-index="{{@index}}" title="{{localize 'swnr.power.reapply'}}">
+                      <i class="fas fa-rotate-right"></i>
+                    </button>
+                  </span>
                 {{/if}}
               </td>
             </tr>

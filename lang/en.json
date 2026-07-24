@@ -2211,6 +2211,7 @@
       "apply": "Apply",
       "applyAll": "Apply all",
       "reroll": "Reroll save",
+      "reapply": "Re-apply as before",
       "undo": "Undo",
       "undoAll": "Undo all",
       "noSave": "—",

@@ -4,7 +4,7 @@ export function chatListeners(message, html) {
 
   html.on("click", ".card-buttons button", _onChatCardAction.bind(this));
   // Targeted-power buttons (rendered inside the per-target table, not .card-buttons)
-  html.on("click", "button[data-action='apply-target'], button[data-action='apply-all'], button[data-action='revert-target'], button[data-action='revert-all'], button[data-action='reroll-target']",
+  html.on("click", "button[data-action='apply-target'], button[data-action='apply-all'], button[data-action='revert-target'], button[data-action='revert-all'], button[data-action='reroll-target'], button[data-action='reapply-target']",
     (event) => _onTargetApplyClick(event, message));
   // GM-only controls (undo/reroll) are rendered for everyone but removed for players
   if (!game.user?.isGM) html.find(".gm-only").remove();
@@ -299,6 +299,7 @@ async function _onTargetApplyClick(event, message) {
     case "revert-target": await mod.revertFromButton(message, index); break;
     case "revert-all": await mod.revertAllFromButton(message); break;
     case "reroll-target": await mod.rerollFromButton(message, index); break;
+    case "reapply-target": await mod.reapplyFromButton(message, index); break;
   }
 }
 
