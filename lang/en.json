@@ -2214,6 +2214,14 @@
       "reapply": "Re-apply as before",
       "undo": "Undo",
       "undoAll": "Undo all",
+      "notify": {
+        "applied": "Applied {effect} to {target}",
+        "appliedAll": "Applied to {count} target(s)",
+        "reverted": "Reverted {target}",
+        "revertedAll": "Reverted {count} target(s)",
+        "rerolled": "{target}: re-rolled save — {effect}",
+        "reapplied": "Re-applied {effect} to {target}"
+      },
       "noSave": "—",
       "gmApply": {
         "title": "Approve power effect",

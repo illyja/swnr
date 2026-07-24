@@ -368,6 +368,7 @@ export async function applyTargetFromButton(message, index) {
   if ((actor?.isOwner ?? false) || game.user.isGM) {
     await applyTargetRow(row);
     row.status = "applied";
+    ui.notifications?.info(game.i18n.format("swnr.power.notify.applied", { effect: row.amountLabel, target: row.name }));
   } else {
     const power = message.flags?.swnr?.powerUuid ? await fromUuid(message.flags.swnr.powerUuid) : null;
     requestGMApply(row, message, power);
@@ -435,22 +436,24 @@ export async function revertFromButton(message, index) {
   row.status = "reverted";
   await message.setFlag("swnr", "targetResults", rows);
   await rerenderPowerCard(message);
+  ui.notifications?.info(game.i18n.format("swnr.power.notify.reverted", { target: row.name }));
 }
 
 /** GM-only: undo every applied row. */
 export async function revertAllFromButton(message) {
   if (!game.user.isGM) return;
   const rows = foundry.utils.deepClone(message.flags?.swnr?.targetResults ?? []);
-  let changed = false;
+  let count = 0;
   for (const row of rows) {
     if (row.status !== "applied") continue;
     await revertTargetRow(row);
     row.status = "reverted";
-    changed = true;
+    count++;
   }
-  if (changed) {
+  if (count) {
     await message.setFlag("swnr", "targetResults", rows);
     await rerenderPowerCard(message);
+    ui.notifications?.info(game.i18n.format("swnr.power.notify.revertedAll", { count }));
   }
 }
 
@@ -464,6 +467,7 @@ export async function reapplyFromButton(message, index) {
   row.status = "applied";
   await message.setFlag("swnr", "targetResults", rows);
   await rerenderPowerCard(message);
+  ui.notifications?.info(game.i18n.format("swnr.power.notify.reapplied", { effect: row.amountLabel, target: row.name }));
 }
 
 /** GM-only: re-roll a row's save, recompute the amount/effects, and re-apply. */
@@ -497,6 +501,7 @@ export async function rerollFromButton(message, index) {
 
   await message.setFlag("swnr", "targetResults", rows);
   await rerenderPowerCard(message);
+  ui.notifications?.info(game.i18n.format("swnr.power.notify.rerolled", { target: row.name, effect: row.amountLabel }));
 }
 
 /** Apply every still-manual row. */
@@ -504,12 +509,14 @@ export async function applyAllFromButton(message) {
   const rows = foundry.utils.deepClone(message.flags?.swnr?.targetResults ?? []);
   const power = message.flags?.swnr?.powerUuid ? await fromUuid(message.flags.swnr.powerUuid) : null;
   let changed = false;
+  let appliedCount = 0;
   for (const row of rows) {
     if (row.status !== "manual" && row.status !== "pending") continue;
     const actor = game.actors.get(row.actorId);
     if ((actor?.isOwner ?? false) || game.user.isGM) {
       await applyTargetRow(row);
       row.status = "applied";
+      appliedCount++;
     } else {
       requestGMApply(row, message, power);
     }
@@ -518,5 +525,8 @@ export async function applyAllFromButton(message) {
   if (changed) {
     await message.setFlag("swnr", "targetResults", rows);
     await rerenderPowerCard(message);
+    if (appliedCount) {
+      ui.notifications?.info(game.i18n.format("swnr.power.notify.appliedAll", { count: appliedCount }));
+    }
   }
 }
