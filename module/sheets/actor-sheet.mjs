@@ -214,7 +214,8 @@ export class SWNActorSheet extends SWNBaseSheet {
 
     // Ensure shared fragments are preloaded regardless of which parts render
     await loadTemplates([
-      'systems/swnr/templates/actor/fragments/pools-display.hbs'
+      'systems/swnr/templates/actor/fragments/pools-display.hbs',
+      'systems/swnr/templates/actor/fragments/power-row-meta.hbs'
     ]);
 
     // Offloading context prep to a helper function
@@ -382,7 +383,27 @@ export class SWNActorSheet extends SWNBaseSheet {
         
         // Add hasPrepCosts property to the power item
         i.hasPrepCosts = i.system.consumptions?.some(c => c.timing === "preparation") || false;
-        
+
+        // Inline cost tags (poolResource / systemStrain) for display on the power row.
+        // `uses` costs are already shown as a separate (x/max) counter, so exclude them here.
+        i.costTags = (i.system.consumptions || [])
+          .filter(c => c.type === "poolResource" || c.type === "systemStrain")
+          .map(c => c.type === "poolResource"
+            ? { type: "poolResource", amount: c.usesCost, resourceName: c.resourceName, subResource: c.subResource || "", cadence: c.cadence }
+            : { type: "systemStrain", amount: c.usesCost });
+
+        // Active effort commitments for this specific power, looked up across all pools.
+        const actorCommitments = this.actor.system.effortCommitments || {};
+        const activeCommitments = [];
+        for (const [poolKey, list] of Object.entries(actorCommitments)) {
+          for (const c of (list || [])) {
+            if (c.powerId === i.id) activeCommitments.push({ poolKey, amount: c.amount, duration: c.duration });
+          }
+        }
+        i.activeCommitments = activeCommitments;
+        i.isCommitted = activeCommitments.length > 0;
+        i.committedTotal = activeCommitments.reduce((sum, c) => sum + (c.amount || 0), 0);
+
         // Initialize type structure if needed
         if (!powersByType[powerType]) {
           powersByType[powerType] = {};

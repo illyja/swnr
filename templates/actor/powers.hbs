@@ -97,7 +97,7 @@
                             ({{consumption.uses.value}}/{{consumption.uses.max}})
                             <span class="temp-label">{{localize (concat 'swnr.effort.' consumption.cadence 'Short')}}</span>
                             {{#if (and @root.editable (lt consumption.uses.value consumption.uses.max))}}
-                              <button type="button" class="reset-power-uses" data-action="resetPowerUses" 
+                              <button type="button" class="reset-power-uses" data-action="resetPowerUses"
                                       data-item-id="{{item.id}}" data-consumption-index="{{@index}}"
                                       title="{{localize 'swnr.pools.resetUses'}}">
                                 <i class="fas fa-times"></i>
@@ -108,6 +108,7 @@
                       {{/each}}
                     </div>
                   {{/if}}
+                  {{> "systems/swnr/templates/actor/fragments/power-row-meta.hbs" item=item editable=@root.editable}}
                 </div>
               </div>
               <div class='item-controls'>
@@ -190,7 +191,7 @@
                             ({{consumption.uses.value}}/{{consumption.uses.max}})
                             <span class="temp-label">{{localize (concat 'swnr.effort.' consumption.cadence 'Short')}}</span>
                             {{#if (and @root.editable (lt consumption.uses.value consumption.uses.max))}}
-                              <button type="button" class="reset-power-uses" data-action="resetPowerUses" 
+                              <button type="button" class="reset-power-uses" data-action="resetPowerUses"
                                       data-item-id="{{item.id}}" data-consumption-index="{{@index}}"
                                       title="{{localize 'swnr.pools.resetUses'}}">
                                 <i class="fas fa-times"></i>
@@ -201,6 +202,7 @@
                       {{/each}}
                     </div>
                   {{/if}}
+                  {{> "systems/swnr/templates/actor/fragments/power-row-meta.hbs" item=item editable=@root.editable}}
                 </div>
                 </div>
                 <div class='item-controls'>
