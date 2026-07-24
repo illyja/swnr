@@ -565,6 +565,19 @@
 
     .target-effect {
       white-space: nowrap;
+
+      .effect-amount {
+        margin-right: 0.25rem;
+      }
+
+      .target-applied-icon {
+        color: #2e8b57;
+      }
+
+      .target-awaiting-icon,
+      .target-reverted-icon {
+        opacity: 0.6;
+      }
     }
 
     .target-save {

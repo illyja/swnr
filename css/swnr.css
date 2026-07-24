@@ -766,6 +766,19 @@
   white-space: nowrap;
 }
 
+.power-targets .power-targets-table .target-effect .effect-amount {
+  margin-right: 0.25rem;
+}
+
+.power-targets .power-targets-table .target-effect .target-applied-icon {
+  color: #2e8b57;
+}
+
+.power-targets .power-targets-table .target-effect .target-awaiting-icon,
+.power-targets .power-targets-table .target-effect .target-reverted-icon {
+  opacity: 0.6;
+}
+
 .power-targets .power-targets-table .target-save {
   white-space: nowrap;
 }
