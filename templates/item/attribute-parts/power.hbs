@@ -52,8 +52,25 @@
     {{#if systemFields.skill}}
       {{formGroup systemFields.skill value=system.skill localize=true}}
     {{/if}}
-    
+
   </div>
+
+  {{! Targeted-effect automation }}
+  <fieldset>
+    <legend>{{localize "swnr.power.targeting.legend"}}</legend>
+    <div class="resource">
+      <label class="resource-label">{{localize "swnr.power.targeting.applyToTargets"}}</label>
+      <input type="checkbox" name="system.applyToTargets" {{#if system.applyToTargets}}checked{{/if}} data-dtype="Boolean" />
+    </div>
+    {{#if system.applyToTargets}}
+      <p class="help-text">{{localize "swnr.power.targeting.hint"}}</p>
+      <div class='grid grid-3col'>
+        {{formGroup systemFields.effectKind value=system.effectKind label=(localize "swnr.power.effectKind.label") localize=true}}
+        {{formGroup systemFields.saveBehavior value=system.saveBehavior label=(localize "swnr.power.saveBehavior.label") localize=true}}
+        {{formGroup systemFields.effectApplyTiming value=system.effectApplyTiming label=(localize "swnr.power.effectTiming.label") localize=true}}
+      </div>
+    {{/if}}
+  </fieldset>
 
   {{! Resource Consumption Section }}
   <fieldset>

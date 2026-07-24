@@ -2167,6 +2167,66 @@
       },
       "resetUses": "Reset power uses to maximum"
     },
+    "power": {
+      "effectKind": {
+        "label": "Effect",
+        "damage": "Damage",
+        "healing": "Healing"
+      },
+      "saveBehavior": {
+        "label": "On successful save",
+        "none": "No effect (full)",
+        "negates": "Negates",
+        "half": "Half"
+      },
+      "effectTiming": {
+        "label": "Apply effects",
+        "never": "Never",
+        "always": "Always",
+        "onFail": "On failed save",
+        "onSave": "On successful save"
+      },
+      "targeting": {
+        "legend": "Targeting",
+        "applyToTargets": "Auto-apply to targeted tokens",
+        "hint": "When enabled, using this power rolls each targeted token's save and applies the effect."
+      },
+      "applyToTargetTooltip": "Apply this effect to targets (instead of the caster)",
+      "table": {
+        "target": "Target",
+        "save": "Save",
+        "effect": "Effect",
+        "status": "Status"
+      },
+      "amount": {
+        "damage": "{n} dmg",
+        "healing": "{n} heal",
+        "none": "—"
+      },
+      "status": {
+        "applied": "Applied",
+        "awaitingGM": "Awaiting GM",
+        "reverted": "Reverted"
+      },
+      "apply": "Apply",
+      "applyAll": "Apply all",
+      "reroll": "Reroll save",
+      "undo": "Undo",
+      "undoAll": "Undo all",
+      "noSave": "—",
+      "gmApply": {
+        "title": "Approve power effect",
+        "prompt": "{caster} → {target}: {effect}. {save} Apply?",
+        "approved": "{gm} approved: {effect} to {target}",
+        "denied": "{gm} denied applying {effect} to {target}",
+        "noGM": "No active GM to approve — use the Apply button."
+      },
+      "saveResult": {
+        "success": "saved ({total} vs {target})",
+        "failure": "failed ({total} vs {target})",
+        "none": "no save"
+      }
+    },
     "dialog": {
       "attackRoll": "{actorName} attacking with {weaponName}?",
       "addCurrency": "Amount to add to {type}:",

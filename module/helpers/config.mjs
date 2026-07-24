@@ -85,6 +85,25 @@ SWN.saveTypes = {
   luck: 'swnr.sheet.saves.luck',
 };
 
+// Targeted-power automation enums (see helpers/power-targeting.mjs)
+SWN.powerEffectKinds = {
+  damage: 'swnr.power.effectKind.damage',
+  healing: 'swnr.power.effectKind.healing',
+};
+
+SWN.powerSaveBehaviors = {
+  none: 'swnr.power.saveBehavior.none',
+  negates: 'swnr.power.saveBehavior.negates',
+  half: 'swnr.power.saveBehavior.half',
+};
+
+SWN.powerEffectTimings = {
+  never: 'swnr.power.effectTiming.never',
+  always: 'swnr.power.effectTiming.always',
+  onFail: 'swnr.power.effectTiming.onFail',
+  onSave: 'swnr.power.effectTiming.onSave',
+};
+
 /*
 Perfect No penalty to use.
 Worn No penalty to use.

@@ -84,6 +84,17 @@ export default class SWNPower extends SWNItemBase {
     schema.save = SWNShared.stringChoices(null, CONFIG.SWN.saveTypes, false);
     schema.range = SWNShared.nullableString();
     schema.skill = SWNShared.nullableString();
+
+    // Targeted-effect automation (see helpers/power-targeting.mjs).
+    // Defaults are inert: applyToTargets=false gates the whole pipeline, so
+    // existing powers behave exactly as before until explicitly opted in.
+    schema.applyToTargets = new fields.BooleanField({ initial: false });
+    // Whether the `roll` total is dealt as damage or restored as healing.
+    schema.effectKind = SWNShared.stringChoices("damage", CONFIG.SWN.powerEffectKinds);
+    // What a successful save does to the amount: nothing / negates it / halves it.
+    schema.saveBehavior = SWNShared.stringChoices("none", CONFIG.SWN.powerSaveBehaviors);
+    // When ActiveEffects flagged for targets are transferred, relative to the save.
+    schema.effectApplyTiming = SWNShared.stringChoices("never", CONFIG.SWN.powerEffectTimings);
     return schema;
   }
 
