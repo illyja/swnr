@@ -798,14 +798,29 @@
   padding: 0 0.4rem;
 }
 
-.power-targets .power-targets-table .target-gm-controls {
-  margin-left: 0.25rem;
+.power-targets .power-targets-table .target-actions-col {
+  width: 1%;
+}
+
+.power-targets .power-targets-table td.target-actions {
+  text-align: right;
   white-space: nowrap;
 }
 
+.power-targets .power-targets-table td.target-actions > button {
+  display: inline-flex;
+}
+
+.power-targets .power-targets-table .target-gm-controls {
+  display: inline-flex;
+  gap: 0.15rem;
+  justify-content: flex-end;
+}
+
 .power-targets .power-targets-table .target-gm-controls button {
+  flex: 0 0 auto;
   padding: 0 0.3rem;
-  opacity: 0.75;
+  opacity: 0.7;
 }
 
 .power-targets .power-targets-table .target-gm-controls button:hover {

@@ -97,6 +97,7 @@
             <th>{{localize "swnr.power.table.target"}}</th>
             <th>{{localize "swnr.power.table.save"}}</th>
             <th>{{localize "swnr.power.table.effect"}}</th>
+            <th class="target-actions-col"></th>
           </tr>
         </thead>
         <tbody>
@@ -113,6 +114,14 @@
                 <span class="effect-amount">{{amountLabel}}</span>
                 {{#if (eq status "applied")}}
                   <i class="fas fa-check target-applied-icon" title="{{localize 'swnr.power.status.applied'}}"></i>
+                {{else if (eq status "awaitingGM")}}
+                  <i class="fas fa-hourglass-half target-awaiting-icon" title="{{localize 'swnr.power.status.awaitingGM'}}"></i>
+                {{else if (eq status "reverted")}}
+                  <i class="fas fa-rotate-left target-reverted-icon" title="{{localize 'swnr.power.status.reverted'}}"></i>
+                {{/if}}
+              </td>
+              <td class="target-actions">
+                {{#if (eq status "applied")}}
                   <span class="gm-only target-gm-controls">
                     <button type="button" class="target-reroll" data-action="reroll-target" data-target-index="{{@index}}" title="{{localize 'swnr.power.reroll'}}">
                       <i class="fas fa-dice"></i>
@@ -121,11 +130,7 @@
                       <i class="fas fa-rotate-left"></i>
                     </button>
                   </span>
-                {{else if (eq status "awaitingGM")}}
-                  <i class="fas fa-hourglass-half target-awaiting-icon" title="{{localize 'swnr.power.status.awaitingGM'}}"></i>
-                {{else if (eq status "reverted")}}
-                  <i class="fas fa-rotate-left target-reverted-icon" title="{{localize 'swnr.power.status.reverted'}}"></i>
-                {{else}}
+                {{else if (or (eq status "manual") (eq status "pending"))}}
                   <button type="button" data-action="apply-target" data-target-index="{{@index}}">
                     {{localize "swnr.power.apply"}}
                   </button>

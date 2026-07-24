@@ -599,13 +599,30 @@
       padding: 0 0.4rem;
     }
 
-    .target-gm-controls {
-      margin-left: 0.25rem;
+    // Narrow, right-aligned action column for per-row controls
+    .target-actions-col {
+      width: 1%;
+    }
+
+    td.target-actions {
+      text-align: right;
       white-space: nowrap;
 
+      // keep the per-row buttons on one line (Foundry chat buttons are block)
+      > button {
+        display: inline-flex;
+      }
+    }
+
+    .target-gm-controls {
+      display: inline-flex;
+      gap: 0.15rem;
+      justify-content: flex-end;
+
       button {
+        flex: 0 0 auto;
         padding: 0 0.3rem;
-        opacity: 0.75;
+        opacity: 0.7;
 
         &:hover {
           opacity: 1;
