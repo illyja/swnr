@@ -89,6 +89,48 @@
     </div>
   {{/if}}
 
+  {{#if targetResults}}
+    <div class="power-targets">
+      <table class="power-targets-table">
+        <thead>
+          <tr>
+            <th>{{localize "swnr.power.table.target"}}</th>
+            <th>{{localize "swnr.power.table.save"}}</th>
+            <th>{{localize "swnr.power.table.effect"}}</th>
+            <th>{{localize "swnr.power.table.status"}}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each targetResults}}
+            <tr data-target-index="{{@index}}">
+              <td class="target-name">{{name}}</td>
+              <td class="target-save">
+                {{#if save}}
+                  {{#if save.success}}<i class="fas fa-shield-halved" title="saved"></i>{{else}}<i class="fas fa-burst" title="failed"></i>{{/if}}
+                  {{save.total}}{{#if save.target}}/{{save.target}}{{/if}}
+                {{else}}—{{/if}}
+              </td>
+              <td class="target-effect">{{amountLabel}}</td>
+              <td class="target-status">
+                {{#if (eq status "applied")}}
+                  <i class="fas fa-check"></i> {{localize "swnr.power.status.applied"}}
+                {{else if (eq status "awaitingGM")}}
+                  <i class="fas fa-hourglass-half"></i> {{localize "swnr.power.status.awaitingGM"}}
+                {{else if (eq status "reverted")}}
+                  {{localize "swnr.power.status.reverted"}}
+                {{else}}
+                  <button type="button" data-action="apply-target" data-target-index="{{@index}}">
+                    {{localize "swnr.power.apply"}}
+                  </button>
+                {{/if}}
+              </td>
+            </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+  {{/if}}
+
   {{#if power.system.save}}
   <div class="card-buttons">
       <button data-action="save" data-save="{{power.system.save}}">

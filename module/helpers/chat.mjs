@@ -670,6 +670,8 @@ export async function _onChatCardAction(
           .filter(c => c && c.type === 'consumableItem' && c.timing === 'manual' && (c.itemText || '').trim().length > 0)
           .map(c => ({ index: c.index, amount: c.usesCost || 0, text: (c.itemText || '').trim() }));
 
+        const chatCardMsgId = chatCard.data('message-id');
+        const chatCardMsg = chatCardMsgId ? game.messages?.get(chatCardMsgId) : null;
         const templateData = {
           actor: actor,
           power: power,
@@ -679,7 +681,9 @@ export async function _onChatCardAction(
           consumptions: consumptionResults,
           hasManualConsumables,
           hasUnprocessedConsumableManual: hasManualConsumables,
-          consumableRequirements
+          consumableRequirements,
+          // Preserve any targeted-effect table across this re-render
+          targetResults: chatCardMsg?.flags?.swnr?.targetResults ?? []
         };
 
 
@@ -834,20 +838,22 @@ export async function _onChatCardAction(
         consumptions: existingConsumptions,
         processedConsumptions: processedConsumptions,
         hasUnprocessedConsumableManual,
-        consumableRequirements
+        consumableRequirements,
+        // Preserve any targeted-effect table across this re-render
+        targetResults: chatMsg?.flags?.swnr?.targetResults ?? []
       };
-      
+
       const template = "systems/swnr/templates/chat/power-usage.hbs";
       const newContent = await foundry.applications.handlebars.renderTemplate(template, templateData);
-      
+
       if (chatMsg) {
-        await chatMsg.update({ 
+        await chatMsg.update({
           content: newContent,
-          flags: { 
-            swnr: { 
+          flags: {
+            swnr: {
               consumptions: existingConsumptions,
               processedConsumptions: processedConsumptions
-            } 
+            }
           }
         });
       }
@@ -966,7 +972,9 @@ export async function _onChatCardAction(
         consumptions: existingConsumptions,
         processedConsumptions: processed,
         hasUnprocessedConsumableManual,
-        consumableRequirements: requirements.filter(r => (r.text || '').trim().length > 0)
+        consumableRequirements: requirements.filter(r => (r.text || '').trim().length > 0),
+        // Preserve any targeted-effect table across this re-render
+        targetResults: chatMsg?.flags?.swnr?.targetResults ?? []
       };
 
       const template = "systems/swnr/templates/chat/power-usage.hbs";
