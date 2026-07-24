@@ -489,6 +489,7 @@ export default class SWNPower extends SWNItemBase {
           consumptionResults,
           strainCost: totalStrainCost,
           powerRollHTML,
+          powerRollTotal: powerRoll?.total ?? 0,
           targetResults: targetResults ?? null
         }
       }
@@ -568,6 +569,7 @@ export default class SWNPower extends SWNItemBase {
           consumptionResults: [],
           strainCost: 0,
           powerRollHTML,
+          powerRollTotal: powerRoll?.total ?? 0,
           targetResults: targetResults ?? null
         }
       }

@@ -114,6 +114,14 @@
               <td class="target-status">
                 {{#if (eq status "applied")}}
                   <i class="fas fa-check"></i> {{localize "swnr.power.status.applied"}}
+                  <span class="gm-only target-gm-controls">
+                    <button type="button" class="target-reroll" data-action="reroll-target" data-target-index="{{@index}}" title="{{localize 'swnr.power.reroll'}}">
+                      <i class="fas fa-dice"></i>
+                    </button>
+                    <button type="button" class="target-undo" data-action="revert-target" data-target-index="{{@index}}" title="{{localize 'swnr.power.undo'}}">
+                      <i class="fas fa-rotate-left"></i>
+                    </button>
+                  </span>
                 {{else if (eq status "awaitingGM")}}
                   <i class="fas fa-hourglass-half"></i> {{localize "swnr.power.status.awaitingGM"}}
                 {{else if (eq status "reverted")}}
@@ -128,6 +136,11 @@
           {{/each}}
         </tbody>
       </table>
+      <div class="power-targets-footer gm-only">
+        <button type="button" data-action="revert-all">
+          <i class="fas fa-rotate-left"></i> {{localize "swnr.power.undoAll"}}
+        </button>
+      </div>
     </div>
   {{/if}}
 

@@ -376,6 +376,117 @@ export async function applyTargetFromButton(message, index) {
   await rerenderPowerCard(message);
 }
 
+/* -------------------------------------------- */
+/* GM-only undo & reroll                        */
+/* -------------------------------------------- */
+
+/** Restore a row's target from its undo snapshot (health, soak, effects, defeated). */
+async function revertTargetRow(row) {
+  const snap = row.snapshot;
+  if (!snap) return;
+  const token = resolveToken(row.sceneId, row.tokenId);
+  const actor = token?.actor ?? game.actors.get(row.actorId);
+  if (actor) {
+    const updates = {};
+    if (snap.health != null) updates["system.health.value"] = snap.health;
+    if (actor.type === "npc" && snap.baseSoak != null) updates["system.baseSoakTotal.value"] = snap.baseSoak;
+    if (Object.keys(updates).length) await actor.update(updates);
+
+    // Restore depleted armor soak values
+    if (Array.isArray(snap.soak) && snap.soak.length) {
+      const embedded = snap.soak
+        .filter((s) => actor.items.get(s.itemId))
+        .map((s) => ({ _id: s.itemId, "system.soak.value": s.value }));
+      if (embedded.length) await actor.updateEmbeddedDocuments("Item", embedded);
+    }
+
+    // Restore hacker health (cyberdeck path)
+    if (snap.hackerId && snap.hackerHealth != null) {
+      const hacker = game.actors.get(snap.hackerId);
+      if (hacker) await hacker.update({ "system.health.value": snap.hackerHealth });
+    }
+
+    // Remove any ActiveEffects this application created
+    if (Array.isArray(snap.createdEffectIds) && snap.createdEffectIds.length) {
+      const existing = snap.createdEffectIds.filter((id) => actor.effects.get(id));
+      if (existing.length) await actor.deleteEmbeddedDocuments("ActiveEffect", existing);
+    }
+
+    // Restore the DEFEATED status/combatant state
+    const status = CONFIG.statusEffects.find((e) => e.id === CONFIG.specialStatusEffects.DEFEATED);
+    if (status && typeof actor.toggleStatusEffect === "function") {
+      const currentlyDefeated = actor.statuses?.has?.(status.id) ?? false;
+      if (!!snap.defeated !== currentlyDefeated) {
+        await actor.toggleStatusEffect(status.id, { active: !!snap.defeated, overlay: true });
+      }
+    }
+    if (token?.combatant) await token.combatant.update({ defeated: !!snap.defeated });
+  }
+  row.snapshot = null;
+}
+
+/** GM-only: undo a single applied row. */
+export async function revertFromButton(message, index) {
+  if (!game.user.isGM) return;
+  const rows = foundry.utils.deepClone(message.flags?.swnr?.targetResults ?? []);
+  const row = rows[index];
+  if (!row || row.status !== "applied") return;
+  await revertTargetRow(row);
+  row.status = "reverted";
+  await message.setFlag("swnr", "targetResults", rows);
+  await rerenderPowerCard(message);
+}
+
+/** GM-only: undo every applied row. */
+export async function revertAllFromButton(message) {
+  if (!game.user.isGM) return;
+  const rows = foundry.utils.deepClone(message.flags?.swnr?.targetResults ?? []);
+  let changed = false;
+  for (const row of rows) {
+    if (row.status !== "applied") continue;
+    await revertTargetRow(row);
+    row.status = "reverted";
+    changed = true;
+  }
+  if (changed) {
+    await message.setFlag("swnr", "targetResults", rows);
+    await rerenderPowerCard(message);
+  }
+}
+
+/** GM-only: re-roll a row's save, recompute the amount/effects, and re-apply. */
+export async function rerollFromButton(message, index) {
+  if (!game.user.isGM) return;
+  const rows = foundry.utils.deepClone(message.flags?.swnr?.targetResults ?? []);
+  const row = rows[index];
+  if (!row) return;
+
+  const power = message.flags?.swnr?.powerUuid ? await fromUuid(message.flags.swnr.powerUuid) : null;
+  if (!power?.system) return;
+
+  // Undo the existing application first (if any).
+  if (row.status === "applied" && row.snapshot) await revertTargetRow(row);
+
+  // Re-roll the save and recompute the outcome against the stored roll total
+  // (SWN rolls damage once for all targets; only the save is re-rolled).
+  const actor = game.actors.get(row.actorId);
+  const saveType = power.system.save || null;
+  const save = saveType && actor ? await rollSaveForActor(actor, saveType) : null;
+  const base = message.flags?.swnr?.powerRollTotal ?? 0;
+  const amount = computeAmount(power.system, base, save);
+  row.save = save;
+  row.amount = amount;
+  row.amountLabel = labelForAmount(amount);
+  row.effects = pickTargetEffects(power, save);
+
+  // Re-apply (GM can modify anything).
+  await applyTargetRow(row);
+  row.status = "applied";
+
+  await message.setFlag("swnr", "targetResults", rows);
+  await rerenderPowerCard(message);
+}
+
 /** Apply every still-manual row. */
 export async function applyAllFromButton(message) {
   const rows = foundry.utils.deepClone(message.flags?.swnr?.targetResults ?? []);

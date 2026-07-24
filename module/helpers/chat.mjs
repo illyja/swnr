@@ -3,9 +3,11 @@ export function chatListeners(message, html) {
   html.on("click", "button.dmgroll", (event) => _onDmgRollClick.call(this, event, message));
 
   html.on("click", ".card-buttons button", _onChatCardAction.bind(this));
-  // Targeted-power apply buttons (rendered inside the per-target table, not .card-buttons)
-  html.on("click", "button[data-action='apply-target'], button[data-action='apply-all']",
+  // Targeted-power buttons (rendered inside the per-target table, not .card-buttons)
+  html.on("click", "button[data-action='apply-target'], button[data-action='apply-all'], button[data-action='revert-target'], button[data-action='revert-all'], button[data-action='reroll-target']",
     (event) => _onTargetApplyClick(event, message));
+  // GM-only controls (undo/reroll) are rendered for everyone but removed for players
+  if (!game.user?.isGM) html.find(".gm-only").remove();
   // Add reroll buttons to all dice rolls
   html.find(".roll").each((_i, div) => {
     _addRerollButton($(div));
@@ -290,11 +292,13 @@ async function _onTargetApplyClick(event, message) {
   const button = event.currentTarget;
   if (!message) return;
   const mod = await import("./power-targeting.mjs");
-  if (button.dataset.action === "apply-target") {
-    const index = parseInt(button.dataset.targetIndex);
-    await mod.applyTargetFromButton(message, index);
-  } else if (button.dataset.action === "apply-all") {
-    await mod.applyAllFromButton(message);
+  const index = parseInt(button.dataset.targetIndex);
+  switch (button.dataset.action) {
+    case "apply-target": await mod.applyTargetFromButton(message, index); break;
+    case "apply-all": await mod.applyAllFromButton(message); break;
+    case "revert-target": await mod.revertFromButton(message, index); break;
+    case "revert-all": await mod.revertAllFromButton(message); break;
+    case "reroll-target": await mod.rerollFromButton(message, index); break;
   }
 }
 
