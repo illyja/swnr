@@ -43,6 +43,40 @@ function labelForAmount(amount) {
  * Roll a save for a target actor without any dialog, returning the outcome.
  * Falls back to auto-success for actor types that don't implement rollSaveResult.
  */
+/**
+ * Whether the power's target effects should transfer, given the save outcome.
+ */
+function shouldApplyEffects(system, save) {
+  const timing = system.effectApplyTiming;
+  if (!timing || timing === "never") return false;
+  if (timing === "always") return true;
+  if (!save) return false; // onFail/onSave need a save to have been rolled
+  if (timing === "onFail") return !save.success;
+  if (timing === "onSave") return save.success;
+  return false;
+}
+
+/**
+ * Serialize the power's target-flagged ActiveEffects for creation on a target,
+ * gated by the power's effectApplyTiming and the save outcome.
+ * @returns {Array<object>} ActiveEffect creation data (empty if none apply)
+ */
+export function pickTargetEffects(power, save) {
+  if (!shouldApplyEffects(power.system, save)) return [];
+  const marked = (power.effects?.contents ?? power.effects ?? []).filter(
+    (e) => e.getFlag?.("swnr", "applyToTarget")
+  );
+  return marked.map((e) => {
+    const data = e.toObject();
+    delete data._id;
+    data.transfer = false;
+    data.origin = power.uuid;
+    // Don't carry the "apply to target" marker onto the target's own copy.
+    if (data.flags?.swnr) delete data.flags.swnr.applyToTarget;
+    return data;
+  });
+}
+
 async function rollSaveForActor(actor, saveType) {
   if (typeof actor.system?.rollSaveResult === "function") {
     return await actor.system.rollSaveResult(saveType);
@@ -80,6 +114,7 @@ export async function resolvePowerTargets(power, powerRoll) {
 
     const save = saveType ? await rollSaveForActor(actor, saveType) : null;
     const amount = computeAmount(system, base, save);
+    const effects = pickTargetEffects(power, save);
 
     rows.push({
       tokenId: token.id,
@@ -89,7 +124,7 @@ export async function resolvePowerTargets(power, powerRoll) {
       save,
       amount,
       amountLabel: labelForAmount(amount),
-      effects: [], // populated in the ActiveEffect phase
+      effects,
       canModify: actor.isOwner,
       status: "pending", // pending | applied | awaitingGM | manual | reverted
       snapshot: null,
@@ -109,6 +144,14 @@ async function applyTargetRow(row) {
   if (row.amount !== 0) {
     const res = await applyHealthDropToToken(token, row.amount);
     row.snapshot = res?.snapshot ?? null;
+  }
+  if (row.effects?.length && token.actor) {
+    const created = await token.actor.createEmbeddedDocuments(
+      "ActiveEffect",
+      foundry.utils.deepClone(row.effects)
+    );
+    if (!row.snapshot) row.snapshot = { createdEffectIds: [] };
+    row.snapshot.createdEffectIds = created.map((e) => e.id);
   }
 }
 
@@ -276,11 +319,20 @@ async function handleGMApplyRequest(msg) {
   let snapshot = null;
   if (approved) {
     const token = resolveToken(msg.sceneId, msg.tokenId);
-    if (token && msg.amount !== 0) {
-      const res = await applyHealthDropToToken(token, msg.amount);
-      snapshot = res?.snapshot ?? null;
+    if (token) {
+      if (msg.amount !== 0) {
+        const res = await applyHealthDropToToken(token, msg.amount);
+        snapshot = res?.snapshot ?? null;
+      }
+      if (msg.effects?.length && token.actor) {
+        const created = await token.actor.createEmbeddedDocuments(
+          "ActiveEffect",
+          foundry.utils.deepClone(msg.effects)
+        );
+        if (!snapshot) snapshot = { createdEffectIds: [] };
+        snapshot.createdEffectIds = created.map((e) => e.id);
+      }
     }
-    // ActiveEffect application to the target is added in a later phase.
   }
 
   // GMs can update any chat message; reflect the outcome for all clients.
