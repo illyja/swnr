@@ -1,0 +1,31 @@
+{{! Inline Effort/cost tags and active-commitment badge for a single power row. }}
+{{! Expects: item (enriched power with costTags/activeCommitments/isCommitted/committedTotal), editable }}
+{{#if item.costTags.length}}
+  <span class="power-cost-tags">
+    {{#each item.costTags}}
+      {{#if (eq type "systemStrain")}}
+        <span class="power-cost-tag cost-strain" title="{{amount}} {{localize 'swnr.consumption.systemStrain'}}">
+          <i class="fas fa-heart-broken"></i>{{amount}}
+        </span>
+      {{else}}
+        <span class="power-cost-tag cost-pool" title="{{amount}} {{resourceName}}{{#if subResource}}:{{subResource}}{{/if}}">
+          <i class="fas fa-battery-half"></i>{{amount}} {{#if subResource}}{{subResource}}{{else}}{{resourceName}}{{/if}}{{#if cadence}} <span class="temp-label">{{localize (concat 'swnr.effort.' cadence 'Short')}}</span>{{/if}}
+        </span>
+      {{/if}}
+    {{/each}}
+  </span>
+{{/if}}
+{{#if item.isCommitted}}
+  <span class="power-committed-badge" title="{{localize 'swnr.effort.title'}}: {{item.committedTotal}}">
+    <i class="fas fa-lock"></i>{{item.committedTotal}}
+    {{#if editable}}
+      {{#each item.activeCommitments}}
+        <button type="button" class="release-commitment" data-action="releaseCommitment"
+                data-pool-key="{{poolKey}}" data-power-id="{{../item.id}}"
+                title="{{localize 'swnr.pools.commitment.release'}}">
+          <i class="fas fa-times"></i>
+        </button>
+      {{/each}}
+    {{/if}}
+  </span>
+{{/if}}

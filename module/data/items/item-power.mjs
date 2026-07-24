@@ -528,30 +528,6 @@ export default class SWNPower extends SWNItemBase {
   }
 
   /**
-   * @override
-   * @param {SWNRPower} item
-   * @param {SWNRActor} actor
-   */
-  static onApply(item, actor) {
-    const parentEffort = item.system.effort;
-    if (parentEffort.value && ["commit", "scene", "day"].includes(parentEffort.cadence)) {
-      actor.system.addEffort(parentEffort, item);
-    }
-  }
-
-  /**
-   * @override
-   * @param {SWNRPower} item
-   * @param {SWNRActor} actor
-   */
-  static onUnapply(item, actor) {
-    const parentEffort = item.system.effort;
-    if (parentEffort.value && ["commit", "scene", "day"].includes(parentEffort.cadence)) {
-      actor.system.removeEffort(parentEffort, item);
-    }
-  }
-
-  /**
    * Validate a single consumption requirement without applying changes
    * @param {Actor} actor - The actor using the power
    * @param {Object} consumes - Consumption configuration

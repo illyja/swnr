@@ -151,6 +151,16 @@ export default class SWNActorBase extends foundry.abstract
             tempScene,
             tempDay,
           };
+
+          // Keep committed/commitments explicit here rather than relying on the
+          // spread above, so the invariant holds even if the create-branch changes.
+          // Commitments are keyed per pool (not per feature), so this is idempotent.
+          if (includeCommitments) {
+            const actorCommitments = parent.system?.effortCommitments || {};
+            const commitments = actorCommitments[poolKey] || [];
+            pools[poolKey].committed = commitments.reduce((sum, c) => sum + (c.amount || 0), 0);
+            pools[poolKey].commitments = commitments;
+          }
         } else {
           // Create a new pool record
           const tempCommit = sourcePoolData?.tempCommit || 0;
