@@ -541,3 +541,104 @@
     font-size: 0.9em;
   }
 }
+
+// Targeted-power per-target results table (power-usage chat card)
+.power-targets {
+  margin: 0.4rem 0;
+
+  .power-targets-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+
+    th,
+    td {
+      padding: 0.15rem 0.35rem;
+      text-align: left;
+      border-bottom: 1px solid var(--color-border-light-tertiary, rgba(0, 0, 0, 0.15));
+    }
+
+    th {
+      font-weight: bold;
+      opacity: 0.8;
+    }
+
+    .target-effect {
+      white-space: nowrap;
+
+      .effect-amount {
+        margin-right: 0.25rem;
+      }
+
+      .target-applied-icon {
+        color: #2e8b57;
+      }
+
+      .target-awaiting-icon,
+      .target-reverted-icon {
+        opacity: 0.6;
+      }
+    }
+
+    .target-save {
+      white-space: nowrap;
+
+      .fa-shield-halved {
+        color: #2e8b57;
+      }
+
+      .fa-burst {
+        color: #b03030;
+      }
+    }
+
+    button {
+      width: auto;
+      font-size: 0.9em;
+      line-height: 1.5;
+      padding: 0 0.4rem;
+    }
+
+    // Narrow, right-aligned action column for per-row controls
+    .target-actions-col {
+      width: 1%;
+    }
+
+    td.target-actions {
+      text-align: right;
+      white-space: nowrap;
+
+      // keep the per-row buttons on one line (Foundry chat buttons are block)
+      > button {
+        display: inline-flex;
+      }
+    }
+
+    .target-gm-controls {
+      display: inline-flex;
+      gap: 0.15rem;
+      justify-content: flex-end;
+
+      button {
+        flex: 0 0 auto;
+        padding: 0 0.3rem;
+        opacity: 0.7;
+
+        &:hover {
+          opacity: 1;
+        }
+      }
+    }
+  }
+
+  .power-targets-footer {
+    margin-top: 0.35rem;
+    text-align: right;
+
+    button {
+      width: auto;
+      font-size: 0.85em;
+      padding: 0 0.5rem;
+    }
+  }
+}

@@ -269,6 +269,20 @@ export default class SWNNPC extends SWNActorBase {
     roll.toMessage({ flavor, speaker: { actor: this.id } });
   }
 
+  /**
+   * Non-interactive save resolution for automated (targeted) power effects.
+   * NPCs use a single scalar save target and ignore the save type.
+   * @param {string} _saveType - ignored for NPCs
+   * @returns {Promise<{saveType:string, target:number, total:number, success:boolean, rollJSON:string}>}
+   */
+  async rollSaveResult(_saveType) {
+    const target = this.saves;
+    const roll = new Roll("1d20");
+    await roll.roll();
+    const success = roll.total >= target;
+    return { saveType: _saveType, target, total: roll.total, success, rollJSON: JSON.stringify(roll) };
+  }
+
   async rollMorale() {
     const roll = new Roll("2d6");
     await roll.roll();

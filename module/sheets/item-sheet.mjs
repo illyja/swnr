@@ -28,6 +28,7 @@ export class SWNItemSheet extends api.HandlebarsApplicationMixin(
       createDoc: this._createEffect,
       deleteDoc: this._deleteEffect,
       toggleEffect: this._toggleEffect,
+      toggleTargetFlag: this._toggleTargetFlag,
       addPool: this._onAddPool,
       removePool: this._onRemovePool,
       addConsumption: this._onAddConsumption,
@@ -726,6 +727,18 @@ export class SWNItemSheet extends api.HandlebarsApplicationMixin(
   static async _toggleEffect(event, target) {
     const effect = this._getEffect(target);
     await effect.update({ disabled: !effect.disabled });
+  }
+
+  /**
+   * Toggle whether an ActiveEffect applies to a power's targets (vs. the caster).
+   * Marked via flags.swnr.applyToTarget; consumed by the targeting pipeline.
+   * @this SWNItemSheet
+   */
+  static async _toggleTargetFlag(event, target) {
+    const effect = this._getEffect(target);
+    if (!effect) return;
+    const current = effect.getFlag("swnr", "applyToTarget");
+    await effect.setFlag("swnr", "applyToTarget", !current);
   }
 
   /**

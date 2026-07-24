@@ -13,6 +13,7 @@ import { SWN } from './helpers/config.mjs';
 import { registerSettings, addLanguagePreset } from './helpers/register-settings.mjs';
 import { registerHandlebarHelpers } from './helpers/handlebar.mjs';
 import { chatListeners, welcomeMessage } from './helpers/chat.mjs';
+import { registerPowerSocket } from './helpers/power-targeting.mjs';
 import * as refreshHelpers from './helpers/refresh-helpers.mjs';
 import * as refreshOrchestrator from './helpers/refresh-orchestrator.mjs';
 
@@ -358,6 +359,9 @@ Hooks.on('renderSettingsConfig', (app, html, data) => {
 Hooks.on("renderChatMessage", (message, html, _data) =>
   chatListeners(message, html)
 );
+
+// Register the targeted-power GM approval relay socket.
+Hooks.once("ready", () => registerPowerSocket());
 
 /* -------------------------------------------- */
 /* Other Hooks                                */

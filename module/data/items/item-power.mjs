@@ -1,5 +1,6 @@
 import SWNItemBase from './base-item.mjs';
 import SWNShared from '../shared.mjs';
+import { resolvePowerTargets, applyPowerResults } from '../../helpers/power-targeting.mjs';
 
 export default class SWNPower extends SWNItemBase {
   static LOCALIZATION_PREFIXES = [
@@ -84,6 +85,17 @@ export default class SWNPower extends SWNItemBase {
     schema.save = SWNShared.stringChoices(null, CONFIG.SWN.saveTypes, false);
     schema.range = SWNShared.nullableString();
     schema.skill = SWNShared.nullableString();
+
+    // Targeted-effect automation (see helpers/power-targeting.mjs).
+    // Defaults are inert: applyToTargets=false gates the whole pipeline, so
+    // existing powers behave exactly as before until explicitly opted in.
+    schema.applyToTargets = new fields.BooleanField({ initial: false });
+    // Whether the `roll` total is dealt as damage or restored as healing.
+    schema.effectKind = SWNShared.stringChoices("damage", CONFIG.SWN.powerEffectKinds);
+    // What a successful save does to the amount: nothing / negates it / halves it.
+    schema.saveBehavior = SWNShared.stringChoices("none", CONFIG.SWN.powerSaveBehaviors);
+    // When ActiveEffects flagged for targets are transferred, relative to the save.
+    schema.effectApplyTiming = SWNShared.stringChoices("never", CONFIG.SWN.powerEffectTimings);
     return schema;
   }
 
@@ -399,9 +411,17 @@ export default class SWNPower extends SWNItemBase {
       await powerRoll.roll();
     }
 
+    // Resolve targeted-effect rows (null unless applyToTargets + user has targets)
+    const targetResults = await resolvePowerTargets(item, powerRoll);
+
     // Create enhanced chat card
-    const chatData = await this._createPowerChatCard(powerRoll, consumptionResults);
+    const chatData = await this._createPowerChatCard(powerRoll, consumptionResults, targetResults);
     const chatMessage = await getDocumentClass("ChatMessage").create(chatData);
+
+    // Apply resolved targets (owned directly; others fall back to manual)
+    if (targetResults && chatMessage) {
+      await applyPowerResults(chatMessage, item);
+    }
 
     return {
       powerRoll,
@@ -412,10 +432,11 @@ export default class SWNPower extends SWNItemBase {
   /**
    * Create enhanced chat card with resource information
    */
-  async _createPowerChatCard(powerRoll = null, consumptionResults = []) {
+  async _createPowerChatCard(powerRoll = null, consumptionResults = [], targetResults = null) {
     const item = this.parent;
     const actor = item.actor;
     const rollMode = game.settings.get("core", "rollMode");
+    const powerRollHTML = powerRoll ? await powerRoll.render() : null;
 
     // Calculate strain cost from consumption results
     const totalStrainCost = consumptionResults
@@ -442,22 +463,36 @@ export default class SWNPower extends SWNItemBase {
     const templateData = {
       actor: actor,
       power: item,
-      powerRoll: powerRoll ? await powerRoll.render() : null,
+      powerRoll: powerRollHTML,
       strainCost: totalStrainCost,
       isPassive: !hasRuntimeCosts, // Passive only if no immediate or manual costs
       consumptions: consumptionResults, // Contains immediate costs due to filtering in use()
       hasManualConsumables: consumableRequirements.length > 0,
       hasUnprocessedConsumableManual: consumableRequirements.length > 0,
-      consumableRequirements
+      consumableRequirements,
+      targetResults
     };
 
     const template = "systems/swnr/templates/chat/power-usage.hbs";
     const chatContent = await foundry.applications.handlebars.renderTemplate(template, templateData);
-    
+
     const chatData = {
       speaker: ChatMessage.getSpeaker({ actor: actor }),
       content: chatContent,
-      roll: powerRoll ? JSON.stringify(powerRoll) : null
+      roll: powerRoll ? JSON.stringify(powerRoll) : null,
+      // Persist everything a re-render needs, so chat re-renders never re-roll
+      // saves or re-apply effects (see helpers/power-targeting.mjs).
+      flags: {
+        swnr: {
+          powerUuid: item.uuid,
+          actorId: actor?.id ?? null,
+          consumptionResults,
+          strainCost: totalStrainCost,
+          powerRollHTML,
+          powerRollTotal: powerRoll?.total ?? 0,
+          targetResults: targetResults ?? null
+        }
+      }
     };
 
     getDocumentClass("ChatMessage").applyRollMode(chatData, rollMode);
@@ -487,32 +522,37 @@ export default class SWNPower extends SWNItemBase {
     // For powers without immediate costs, use the simple roll-to-chat flow
     const powerRoll = new Roll(this.roll ? this.roll : "0");
     await powerRoll.roll();
-    
+    const powerRollHTML = await powerRoll.render();
+
     // Check if power has manual costs (timing: "manual")
     const manualConsumptions = allConsumptions.filter(c => c.timing === "manual");
     const hasManualCosts = manualConsumptions.length > 0;
-    
+
     // Check if power has any runtime costs (immediate or manual)
     const runtimeConsumptions = allConsumptions.filter(c => c.timing === "immediate" || c.timing === "manual");
     const hasRuntimeCosts = runtimeConsumptions.length > 0;
-    
+
     // Determine if there are manual consumable costs to show combined button
     const hasManualConsumables = allConsumptions.some(c => c.timing === "manual" && c.type === "consumableItem");
     const consumableRequirements = allConsumptions
       .map((c, idx) => ({ index: idx, ...c }))
       .filter(c => c && c.timing === 'manual' && c.type === 'consumableItem' && (c.itemText || '').trim().length > 0)
       .map(c => ({ index: c.index, amount: c.usesCost || 0, text: (c.itemText || '').trim() }));
-    
+
+    // Resolve targeted-effect rows (null unless applyToTargets + user has targets)
+    const targetResults = await resolvePowerTargets(item, powerRoll);
+
     const dialogData = {
       actor: actor,
       power: item,
-      powerRoll: await powerRoll.render(),
+      powerRoll: powerRollHTML,
       strainCost: 0,
       isPassive: !hasRuntimeCosts, // Passive only if no immediate or manual costs
       consumptions: [], // Empty for initial state
       hasManualConsumables,
       hasUnprocessedConsumableManual: hasManualConsumables,
-      consumableRequirements
+      consumableRequirements,
+      targetResults
     };
     const rollMode = game.settings.get("core", "rollMode");
 
@@ -521,10 +561,26 @@ export default class SWNPower extends SWNItemBase {
     const chatData = {
       speaker: ChatMessage.getSpeaker({ actor: actor ?? undefined }),
       content: chatContent,
-      roll: JSON.stringify(powerRoll)
+      roll: JSON.stringify(powerRoll),
+      flags: {
+        swnr: {
+          powerUuid: item.uuid,
+          actorId: actor?.id ?? null,
+          consumptionResults: [],
+          strainCost: 0,
+          powerRollHTML,
+          powerRollTotal: powerRoll?.total ?? 0,
+          targetResults: targetResults ?? null
+        }
+      }
     };
     getDocumentClass("ChatMessage").applyRollMode(chatData, rollMode);
-    getDocumentClass("ChatMessage").create(chatData);
+    const chatMessage = await getDocumentClass("ChatMessage").create(chatData);
+
+    // Apply resolved targets (owned directly; others fall back to manual)
+    if (targetResults && chatMessage) {
+      await applyPowerResults(chatMessage, item);
+    }
   }
 
   /**

@@ -44,6 +44,15 @@
             <div class='effect-source'>{{effect.sourceName}}</div>
             <div class='effect-duration'>{{effect.duration.label}}</div>
             <div class='effect-controls effect-controls flexrow'>
+              {{#if (and @root.editable (eq @root.item.type "power"))}}
+              <a
+                class='effect-control effect-target-flag'
+                data-action='toggleTargetFlag'
+                title='{{localize "swnr.power.applyToTargetTooltip"}}'
+              >
+                <i class='fas fa-crosshairs' {{#unless effect.flags.swnr.applyToTarget}}style="opacity:0.35"{{/unless}}></i>
+              </a>
+              {{/if}}
               {{#if @root.editable}}
               <a
                 class='effect-control'

@@ -321,6 +321,21 @@ export default class SWNCharacter extends SWNActorBase {
     return data;
   }
 
+  /**
+   * Non-interactive save resolution for automated (targeted) power effects.
+   * Rolls 1d20 against the precomputed save target (see prepareDerivedData),
+   * returning the outcome instead of posting a dialog/chat card.
+   * @param {string} saveType - one of CONFIG.SWN.saveTypes keys
+   * @returns {Promise<{saveType:string, target:number, total:number, success:boolean, rollJSON:string}>}
+   */
+  async rollSaveResult(saveType) {
+    const target = this.save[saveType];
+    const roll = new Roll("1d20");
+    await roll.roll();
+    const success = Number.isNaN(target) ? true : roll.total >= target;
+    return { saveType, target, total: roll.total, success, rollJSON: JSON.stringify(roll) };
+  }
+
   async rollSave(saveType) {
     const target = this.save[saveType];
     if (isNaN(target)) {

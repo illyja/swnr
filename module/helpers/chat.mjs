@@ -3,6 +3,11 @@ export function chatListeners(message, html) {
   html.on("click", "button.dmgroll", (event) => _onDmgRollClick.call(this, event, message));
 
   html.on("click", ".card-buttons button", _onChatCardAction.bind(this));
+  // Targeted-power buttons (rendered inside the per-target table, not .card-buttons)
+  html.on("click", "button[data-action='apply-target'], button[data-action='apply-all'], button[data-action='revert-target'], button[data-action='revert-all'], button[data-action='reroll-target'], button[data-action='reapply-target']",
+    (event) => _onTargetApplyClick(event, message));
+  // GM-only controls (undo/reroll) are rendered for everyone but removed for players
+  if (!game.user?.isGM) html.find(".gm-only").remove();
   // Add reroll buttons to all dice rolls
   html.find(".roll").each((_i, div) => {
     _addRerollButton($(div));
@@ -277,133 +282,183 @@ export async function showValueChange(
   else t.hud.createScrollingText(`${total * -1}`, floaterData); // v9
 }
 
-export async function applyHealthDrop(total) {
+/**
+ * Click handler for the per-target Apply / Apply-all buttons on a power card.
+ * Delegates to the targeting module (dynamic import avoids an import cycle).
+ */
+async function _onTargetApplyClick(event, message) {
+  event.preventDefault();
+  event.stopPropagation();
+  const button = event.currentTarget;
+  if (!message) return;
+  const mod = await import("./power-targeting.mjs");
+  const index = parseInt(button.dataset.targetIndex);
+  switch (button.dataset.action) {
+    case "apply-target": await mod.applyTargetFromButton(message, index); break;
+    case "apply-all": await mod.applyAllFromButton(message); break;
+    case "revert-target": await mod.revertFromButton(message, index); break;
+    case "revert-all": await mod.revertAllFromButton(message); break;
+    case "reroll-target": await mod.rerollFromButton(message, index); break;
+    case "reapply-target": await mod.reapplyFromButton(message, index); break;
+  }
+}
+
+export async function applyHealthDrop(total, tokens = null) {
   if (total == 0) return; // Skip changes of 0
 
-  const tokens = canvas?.tokens?.controlled;
-  if (!tokens || tokens.length == 0) {
+  const list = tokens ?? canvas?.tokens?.controlled;
+  if (!list || list.length == 0) {
     ui.notifications?.error("Please select at least one token");
     return;
   }
   // console.log(
-  //   `Applying health drop ${total} to ${tokens.length} selected tokens`
+  //   `Applying health drop ${total} to ${list.length} tokens`
   // );
 
-  for (const t of tokens) {
-    const actor = t.actor;
-    let isDefeated = false;
+  for (const t of list) {
+    await applyHealthDropToToken(t, total);
+  }
+}
 
-    if (!actor) {
-      ui.notifications?.error("Error getting actor for token " + t.name);
-      continue;
-    }
-    if (actor.type == "cyberdeck") {
-      const shielding = actor.system.health.value;
+/**
+ * Apply a health change to a single token's actor. Positive `total` = damage,
+ * negative = healing. Handles cyberdeck shielding, armor DR, CWN soak, and the
+ * DEFEATED status — identical logic to the original per-token loop body, but
+ * scoped to one token (so the `total` mutation no longer leaks across tokens)
+ * and returning an undo snapshot of the values it changed.
+ * @param {Token} t - a Token placeable
+ * @param {number} total - signed amount (damage positive, heal negative)
+ * @returns {Promise<{tokenId:string, sceneId:string|null, actorId:string, snapshot:object}|null>}
+ */
+export async function applyHealthDropToToken(t, total) {
+  const actor = t.actor;
+  let isDefeated = false;
+
+  if (!actor) {
+    ui.notifications?.error("Error getting actor for token " + t.name);
+    return null;
+  }
+
+  // Pre-mutation snapshot for GM-only undo (captures every field this may write).
+  const snapshot = {
+    health: actor.system.health?.value ?? null,
+    soak: actor.items
+      .filter((i) => i.type === "armor" && typeof i.system?.soak?.value === "number")
+      .map((i) => ({ itemId: i.id, value: i.system.soak.value })),
+    baseSoak: actor.type === "npc" ? (actor.system.baseSoakTotal?.value ?? null) : null,
+    defeated: t.combatant?.defeated ?? false,
+    hackerId: null,
+    hackerHealth: null,
+    createdEffectIds: [],
+  };
+  const done = () => ({ tokenId: t.id, sceneId: t.scene?.id ?? null, actorId: actor.id, snapshot });
+
+  if (actor.type == "cyberdeck") {
+    const shielding = actor.system.health.value;
+    if (total > 0) {
+      // take from shielding first
+      const newShielding = Math.max(shielding - total, 0);
+      total -= shielding - newShielding;
+      await actor.update({ "system.health.value": newShielding });
+      await showValueChange(t, "0xFFA500", shielding - newShielding);
       if (total > 0) {
-        // take from shielding first
-        const newShielding = Math.max(shielding - total, 0);
-        total -= shielding - newShielding;
-        await actor.update({ "system.health.value": newShielding });
-        await showValueChange(t, "0xFFA500", shielding - newShielding);
-        if (total > 0) {
-          isDefeated = true;
-          const hacker = actor.getHacker();
-          // damage still to player
-          if (hacker) {
-            const oldHealth = hacker.system.health.value;
-            const newHealth = Math.max(oldHealth - total, 0);
-            const damage = oldHealth - newHealth;
-            await hacker.update({ "system.health.value": newHealth });
-            total = 0; // prevent later damage
-            ui.notifications?.info(
-              `${hacker.name} takes ${damage} damage, now at ${newHealth} health`
-            );
-          }
-        }
-      }
-    } else {
-      const armorWithDR = actor.items.filter(
-        (i) =>
-          i.type === "armor" &&
-          i.system.use &&
-          i.system.location === "readied" &&
-          i.system.dr > 0
-      );
-      const armorDRSum = armorWithDR.reduce((acc, i) => acc + i.system.dr, 0);
-      if (armorDRSum > 0) {
-        total -= armorDRSum;
-        total = Math.max(total, 0);
-      }
-      if (game.settings.get("swnr", "useCWNArmor")) {
-        const armorWithSoak = 
-          actor.items.filter(
-            (i) =>
-              i.type === "armor" &&
-              i.system.use &&
-              i.system.location === "readied" &&
-              i.system.soak.value > 0
+        isDefeated = true;
+        const hacker = actor.getHacker();
+        // damage still to player
+        if (hacker) {
+          const oldHealth = hacker.system.health.value;
+          const newHealth = Math.max(oldHealth - total, 0);
+          const damage = oldHealth - newHealth;
+          snapshot.hackerId = hacker.id;
+          snapshot.hackerHealth = oldHealth;
+          await hacker.update({ "system.health.value": newHealth });
+          total = 0; // prevent later damage
+          ui.notifications?.info(
+            `${hacker.name} takes ${damage} damage, now at ${newHealth} health`
           );
-        for (const armor of armorWithSoak) {
-          if (total > 0) {
-            const soakValue = armor.system.soak.value;
-            const newSoak = Math.max(soakValue - total, 0);
-            total -= soakValue - newSoak;
-            await armor.update({ "system.soak.value": newSoak });
-            await showValueChange(t, "0xFFA500", soakValue - newSoak);
-          }
         }
-        if (total > 0 && actor.type == "npc") {
-          const soakValue = actor.system.baseSoakTotal.value;
+      }
+    }
+  } else {
+    const armorWithDR = actor.items.filter(
+      (i) =>
+        i.type === "armor" &&
+        i.system.use &&
+        i.system.location === "readied" &&
+        i.system.dr > 0
+    );
+    const armorDRSum = armorWithDR.reduce((acc, i) => acc + i.system.dr, 0);
+    if (armorDRSum > 0) {
+      total -= armorDRSum;
+      total = Math.max(total, 0);
+    }
+    if (game.settings.get("swnr", "useCWNArmor")) {
+      const armorWithSoak =
+        actor.items.filter(
+          (i) =>
+            i.type === "armor" &&
+            i.system.use &&
+            i.system.location === "readied" &&
+            i.system.soak.value > 0
+        );
+      for (const armor of armorWithSoak) {
+        if (total > 0) {
+          const soakValue = armor.system.soak.value;
           const newSoak = Math.max(soakValue - total, 0);
           total -= soakValue - newSoak;
-          await actor.update({ "system.baseSoakTotal.value": newSoak });
+          await armor.update({ "system.soak.value": newSoak });
           await showValueChange(t, "0xFFA500", soakValue - newSoak);
         }
       }
-      const oldHealth = actor.system.health.value;
-      if (total != 0) {
-        let newHealth = oldHealth - total;
-        if (newHealth < 0) {
-          newHealth = 0;
-        } else if (newHealth > actor.system.health.max) {
-          newHealth = actor.system.health.max;
-        }
-        //console.log(`Updating ${actor.name} health to ${newHealth}`);
-        await actor.update({ "system.health.value": newHealth });
-        // Taken from Mana
-        //https://gitlab.com/mkahvi/fvtt-micro-modules/-/blob/master/pf1-floating-health/floating-health.mjs#L182-194
-        const fillColor = total < 0 ? "0x00FF00" : "0xFF0000";
-        showValueChange(t, fillColor, total);
+      if (total > 0 && actor.type == "npc") {
+        const soakValue = actor.system.baseSoakTotal.value;
+        const newSoak = Math.max(soakValue - total, 0);
+        total -= soakValue - newSoak;
+        await actor.update({ "system.baseSoakTotal.value": newSoak });
+        await showValueChange(t, "0xFFA500", soakValue - newSoak);
+      }
+    }
+    const oldHealth = actor.system.health.value;
+    if (total != 0) {
+      let newHealth = oldHealth - total;
+      if (newHealth < 0) {
+        newHealth = 0;
+      } else if (newHealth > actor.system.health.max) {
+        newHealth = actor.system.health.max;
+      }
+      //console.log(`Updating ${actor.name} health to ${newHealth}`);
+      await actor.update({ "system.health.value": newHealth });
+      // Taken from Mana
+      //https://gitlab.com/mkahvi/fvtt-micro-modules/-/blob/master/pf1-floating-health/floating-health.mjs#L182-194
+      const fillColor = total < 0 ? "0x00FF00" : "0xFF0000";
+      showValueChange(t, fillColor, total);
 
-        if (newHealth <= 0) {
-          isDefeated = true;
-        } else if (oldHealth <= 0) {
-          // token was at <=0 and now is not
-          isDefeated = false;
-        } else {
-          // we can return no status to update
-          return;
-        }
-        await t.combatant?.update({ defeated: isDefeated });
-        const status = CONFIG.statusEffects.find(
-          (e) => e.id === CONFIG.specialStatusEffects.DEFEATED
-        );
-        if (!status) return;
-        const effect = actor && status ? status : CONFIG.controlIcons.defeated;
-        if (t.object) {
-          await t.object.toggleEffect(effect, {
-            overlay: true,
-            active: isDefeated,
-          });
-        } else {
-          await t.toggleEffect(effect, {
-            overlay: true,
-            active: isDefeated,
-          });
-        }
+      if (newHealth <= 0) {
+        isDefeated = true;
+      } else if (oldHealth <= 0) {
+        // token was at <=0 and now is not
+        isDefeated = false;
+      } else {
+        // we can return no status to update
+        return done();
+      }
+      await t.combatant?.update({ defeated: isDefeated });
+      const status = CONFIG.statusEffects.find(
+        (e) => e.id === CONFIG.specialStatusEffects.DEFEATED
+      );
+      if (!status) return done();
+      // v13+: toggle the DEFEATED status via the Actor API. Token#toggleEffect
+      // was deprecated in v12 and removed in v13, so the old t.object/t path
+      // threw when a token was reduced to 0 HP.
+      if (typeof actor.toggleStatusEffect === "function") {
+        await actor.toggleStatusEffect(status.id, {
+          overlay: true,
+          active: isDefeated,
+        });
       }
     }
   }
+  return done();
 }
 
 export function _findCharTargets() {
@@ -641,6 +696,8 @@ export async function _onChatCardAction(
           .filter(c => c && c.type === 'consumableItem' && c.timing === 'manual' && (c.itemText || '').trim().length > 0)
           .map(c => ({ index: c.index, amount: c.usesCost || 0, text: (c.itemText || '').trim() }));
 
+        const chatCardMsgId = chatCard.data('message-id');
+        const chatCardMsg = chatCardMsgId ? game.messages?.get(chatCardMsgId) : null;
         const templateData = {
           actor: actor,
           power: power,
@@ -650,7 +707,9 @@ export async function _onChatCardAction(
           consumptions: consumptionResults,
           hasManualConsumables,
           hasUnprocessedConsumableManual: hasManualConsumables,
-          consumableRequirements
+          consumableRequirements,
+          // Preserve any targeted-effect table across this re-render
+          targetResults: chatCardMsg?.flags?.swnr?.targetResults ?? []
         };
 
 
@@ -805,20 +864,22 @@ export async function _onChatCardAction(
         consumptions: existingConsumptions,
         processedConsumptions: processedConsumptions,
         hasUnprocessedConsumableManual,
-        consumableRequirements
+        consumableRequirements,
+        // Preserve any targeted-effect table across this re-render
+        targetResults: chatMsg?.flags?.swnr?.targetResults ?? []
       };
-      
+
       const template = "systems/swnr/templates/chat/power-usage.hbs";
       const newContent = await foundry.applications.handlebars.renderTemplate(template, templateData);
-      
+
       if (chatMsg) {
-        await chatMsg.update({ 
+        await chatMsg.update({
           content: newContent,
-          flags: { 
-            swnr: { 
+          flags: {
+            swnr: {
               consumptions: existingConsumptions,
               processedConsumptions: processedConsumptions
-            } 
+            }
           }
         });
       }
@@ -937,7 +998,9 @@ export async function _onChatCardAction(
         consumptions: existingConsumptions,
         processedConsumptions: processed,
         hasUnprocessedConsumableManual,
-        consumableRequirements: requirements.filter(r => (r.text || '').trim().length > 0)
+        consumableRequirements: requirements.filter(r => (r.text || '').trim().length > 0),
+        // Preserve any targeted-effect table across this re-render
+        targetResults: chatMsg?.flags?.swnr?.targetResults ?? []
       };
 
       const template = "systems/swnr/templates/chat/power-usage.hbs";
