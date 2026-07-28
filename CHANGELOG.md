@@ -5,6 +5,37 @@ All notable changes to the Systems Without Number Redux (SWNR) system for Foundr
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] 2026-07-28 Small fixes and updates
+
+- Added another 'extra' item location (defaults to 'Ship'), and allowed for custom labels for other and extra locations (under character tweaks). GM can set default extra label in the system settings.
+- Added a world defined unskilled skill roll penalty (default is -1) and allowed for a character defined unskilled skill roll penalty modifier (default is 0)
+- Added save modifiers to character sheet (under features/tweaks)
+- Fixed issue with vacc suit and skin descriptions
+- Stowed currency encumbrance now only counts carried currencies (bug fix)
+- Right-click a chat message roll to apply it to the selected token(s) as damage, modified damage, half damage, or healing (Thanks @pandanielxd)
+- Fixed end ship round not updating command points, actions taken, or supporting department (Thanks @gvigh)
+- Fixed ship, vehicle, mech, and drone weapon attacks throwing when the trauma setting is enabled
+- Upgrades with no data migrations no longer show the migration warning notifications
+- Failed migrations are now retried on the next load instead of being marked complete (bug fix)
+
+### Foundry VTT v14 compatibility
+
+Verified against Foundry v14.365. Minimum supported core remains 13.345.
+
+- Fixed actors failing to create or load on v14 (Thanks @illyja)
+- Fixed private and blind rolls being posted publicly on v14
+- Fixed reroll buttons not appearing on chat cards
+- Fixed missing rolls on several chat cards, including power cards (no Dice So Nice, empty `rolls`)
+- Fixed creating a new weapon throwing on partial data (Thanks @illyja)
+- Fixed weapon sheets failing to open from a character sheet (`Missing helper: "select"`)
+- Fixed the ship sensor roll never posting to chat
+- Fixed ship weapon migration silently aborting on items predating the trauma field
+- Fixed vehicle sheet item descriptions throwing on every expand click
+- Fixed editing character resources, custom currencies, and vehicle cargo throwing on v14 (the `duplicate` global was removed, not just deprecated)
+- Replaced deprecated globals removed in v15, the `renderChatMessage` hook, and the roll mode APIs deprecated in v14 (`TextEditor`/`DragDrop` thanks @illyja)
+- System now loads with no deprecation warnings or errors on v14
+- Contributor docs (`CLAUDE.md`) now cover the v13/v14 rules, with `AGENTS.md` and `GEMINI.md` pointing at it
+
 ## [2.3.0] 2025-11-04 More XWN support
 
 - Custom currency system configuration supported. Base currency and up to 5 custom currencies. Old debt, balance, and owed fields are deprecated and will be removed in a future version.  They should be migrated to the new system, but the old values are shown in the tweaks section as readonly.
