@@ -89,70 +89,7 @@
     </div>
   {{/if}}
 
-  {{#if targetResults}}
-    <div class="power-targets">
-      <table class="power-targets-table">
-        <thead>
-          <tr>
-            <th>{{localize "swnr.power.table.target"}}</th>
-            <th>{{localize "swnr.power.table.save"}}</th>
-            <th>{{localize "swnr.power.table.effect"}}</th>
-            <th class="target-actions-col"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {{#each targetResults}}
-            <tr data-target-index="{{@index}}">
-              <td class="target-name">{{name}}</td>
-              <td class="target-save">
-                {{#if save}}
-                  {{#if save.success}}<i class="fas fa-shield-halved" title="saved"></i>{{else}}<i class="fas fa-burst" title="failed"></i>{{/if}}
-                  {{save.total}}{{#if save.target}}/{{save.target}}{{/if}}
-                {{else}}—{{/if}}
-              </td>
-              <td class="target-effect">
-                <span class="effect-amount">{{amountLabel}}</span>
-                {{#if (eq status "applied")}}
-                  <i class="fas fa-check target-applied-icon" title="{{localize 'swnr.power.status.applied'}}"></i>
-                {{else if (eq status "awaitingGM")}}
-                  <i class="fas fa-hourglass-half target-awaiting-icon" title="{{localize 'swnr.power.status.awaitingGM'}}"></i>
-                {{else if (eq status "reverted")}}
-                  <i class="fas fa-rotate-left target-reverted-icon" title="{{localize 'swnr.power.status.reverted'}}"></i>
-                {{/if}}
-              </td>
-              <td class="target-actions">
-                {{#if (eq status "applied")}}
-                  <span class="gm-only target-gm-controls">
-                    <button type="button" class="target-reroll" data-action="reroll-target" data-target-index="{{@index}}" title="{{localize 'swnr.power.reroll'}}">
-                      <i class="fas fa-dice"></i>
-                    </button>
-                    <button type="button" class="target-undo" data-action="revert-target" data-target-index="{{@index}}" title="{{localize 'swnr.power.undo'}}">
-                      <i class="fas fa-rotate-left"></i>
-                    </button>
-                  </span>
-                {{else if (or (eq status "manual") (eq status "pending"))}}
-                  <button type="button" data-action="apply-target" data-target-index="{{@index}}">
-                    {{localize "swnr.power.apply"}}
-                  </button>
-                {{else if (eq status "reverted")}}
-                  <span class="gm-only target-gm-controls">
-                    <button type="button" class="target-reapply" data-action="reapply-target" data-target-index="{{@index}}" title="{{localize 'swnr.power.reapply'}}">
-                      <i class="fas fa-rotate-right"></i>
-                    </button>
-                  </span>
-                {{/if}}
-              </td>
-            </tr>
-          {{/each}}
-        </tbody>
-      </table>
-      <div class="power-targets-footer gm-only">
-        <button type="button" data-action="revert-all">
-          <i class="fas fa-rotate-left"></i> {{localize "swnr.power.undoAll"}}
-        </button>
-      </div>
-    </div>
-  {{/if}}
+  {{> "systems/swnr/templates/chat/partials/target-table.hbs"}}
 
   {{! Manual save button is redundant once saves auto-roll per target }}
   {{#unless targetResults}}
