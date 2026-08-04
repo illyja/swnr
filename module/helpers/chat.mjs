@@ -138,8 +138,31 @@ export function chatListeners(message, html) {
   // .dice-total), not ".roll" -- core puts "roll" on each individual die
   // (<li class="roll die d20">), so _addRerollButton() found no .dice-total
   // and silently bailed, leaving rerolls missing from every chat card.
+  //
+  // On a target card, the shared hit/damage/shock/power roll rerolls in place
+  // and re-resolves the target table; other rolls keep the standalone reroll.
+  const swnr = message?.flags?.swnr;
+  const isTargetCard = Array.isArray(swnr?.targetResults) && swnr.targetResults.length > 0;
   html.find(".dice-roll").each((_i, div) => {
-    _addRerollButton($(div));
+    const $div = $(div);
+    if (isTargetCard) {
+      const $roll = $div.closest(".roll"); // wrapper span carrying the role class
+      let which = null;
+      if (swnr.targetKind === "weapon" && swnr.suppress) {
+        if ($roll.hasClass("roll-suppress-damage")) which = "damage";
+      } else if (swnr.targetKind === "weapon") {
+        if ($roll.hasClass("roll-hit")) which = "hit";
+        else if ($roll.hasClass("roll-shock")) which = "shock";
+        else if ($roll.hasClass("roll-main-damage")) which = "damage";
+      } else if ($roll.hasClass("roll-damage")) {
+        which = "power";
+      }
+      if (which) {
+        _addSharedRerollButton($div, message, which);
+        return;
+      }
+    }
+    _addRerollButton($div);
   });
   
   // Add health buttons to damage rolls
@@ -273,6 +296,37 @@ export function _addRerollButton(html) {
   btnContainer.append(rerollButton);
   
   // Only append if we created a new container
+  if (existingContainer.length === 0) {
+    totalDiv.parent().append(btnContainer);
+  }
+}
+
+/**
+ * Add a reroll button that re-rolls a target card's shared hit/damage/power die
+ * in place and re-resolves the target table (via power-targeting.rerollSharedRoll),
+ * instead of posting a standalone reroll message.
+ */
+export function _addSharedRerollButton(html, message, which) {
+  const totalDiv = html.find(".dice-total");
+  if (!totalDiv || totalDiv.length === 0) return;
+  if (totalDiv.parent().parent().parent().hasClass("re-roll")) return;
+
+  const existingContainer = totalDiv.parent().find(".dmgBtn-container");
+  if (existingContainer.length > 0 && existingContainer.find(".dice-total-reroll-btn").length > 0) {
+    return;
+  }
+  let btnContainer = existingContainer.length > 0 ? existingContainer : $('<div class="dmgBtn-container"></div>');
+
+  const rerollButton = $("<button>")
+    .addClass("dice-total-reroll-btn chat-button-small")
+    .attr("title", game.i18n.localize("swnr.chat.rerollButton"))
+    .append($("<i>").addClass("fas fa-redo"));
+  rerollButton.on("click", async (ev) => {
+    ev.stopPropagation();
+    const mod = await import("./power-targeting.mjs");
+    await mod.rerollSharedRoll(message, which);
+  });
+  btnContainer.append(rerollButton);
   if (existingContainer.length === 0) {
     totalDiv.parent().append(btnContainer);
   }

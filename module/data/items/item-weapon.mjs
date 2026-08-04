@@ -1,6 +1,7 @@
 import SWNBaseGearItem from './base-gear-item.mjs';
 import SWNShared from '../shared.mjs';
 import { applyChatMessageMode, getChatMessageMode } from '../../helpers/utils.mjs';
+import { resolveWeaponTargets, resolveSuppressionTargets, applyTargetResults } from '../../helpers/power-targeting.mjs';
 
 export default class SWNWeapon extends SWNBaseGearItem {
   static LOCALIZATION_PREFIXES = [
@@ -51,6 +52,15 @@ export default class SWNWeapon extends SWNBaseGearItem {
     schema.isNonLethal = new fields.BooleanField({ initial: false });
     schema.isMelee = new fields.BooleanField({ initial: false });
 
+    // Targeted-effect automation (see helpers/power-targeting.mjs). Mirrors the
+    // power fields minus effectKind (weapon amounts are always damage). Defaults
+    // are inert: applyToTargets=false gates the whole pipeline.
+    schema.applyToTargets = new fields.BooleanField({ initial: false });
+    // What a successful save does to the amount (for weapons with a save, e.g.
+    // grenades): nothing / negates it / halves it.
+    schema.saveBehavior = SWNShared.stringChoices("none", CONFIG.SWN.powerSaveBehaviors);
+    // When ActiveEffects flagged for targets are transferred, relative to the save.
+    schema.effectApplyTiming = SWNShared.stringChoices("never", CONFIG.SWN.powerEffectTimings);
 
     return schema;
   }
@@ -161,6 +171,10 @@ export default class SWNWeapon extends SWNBaseGearItem {
     let traumaRating = null;
     let useTrauma = (game.settings.get("swnr", "useTrauma") ? true : false);
     let damageRoll = null;
+    // Numeric captures for target automation (see helpers/power-targeting.mjs).
+    let traumaTriggered = false;
+    let traumaDamageValue = null;
+    let shockDamageValue = null;
 
     const rollArray = [hitRoll];
 
@@ -207,6 +221,8 @@ export default class SWNWeapon extends SWNBaseGearItem {
           );
           await traumaDamageRoll.roll();
           traumaDamage = await traumaDamageRoll.render();
+          traumaTriggered = true;
+          traumaDamageValue = traumaDamageRoll.total;
         }
       }
     } // End of Damage Roll if setting is enabled
@@ -233,12 +249,42 @@ export default class SWNWeapon extends SWNBaseGearItem {
           (this.skillBoostsShock ? ` + ${damageBonus}` : ""),
           rollData
         );
-        _shockRoll = this.safeDamageRoll(_shockRoll); 
+        _shockRoll = this.safeDamageRoll(_shockRoll);
         await _shockRoll.roll();
         shock_roll = await _shockRoll.render();
+        shockDamageValue = _shockRoll.total;
         rollArray.push(_shockRoll);
       }
     }
+
+    // Resolve targeted-effect rows (null unless applyToTargets + user has targets).
+    // Requires the damage roll to have happened (deferred damage skips targeting).
+    const shockConfigured = shock_content != null;
+    let targetResults = null;
+    if (damageRollEnabled && this.applyToTargets) {
+      const targetCtx = {
+        attackTotal: hitRoll.total,
+        mainDamage: damageRoll?.total ?? 0,
+        shockDamage: shockDamageValue,
+        shockAC: shockConfigured ? this.shock.ac : null,
+        traumaTriggered,
+        traumaDamage: traumaDamageValue,
+        isMelee: this.isMelee,
+      };
+      targetResults = await resolveWeaponTargets(this.parent, targetCtx);
+    }
+
+    // Compact, JSON-safe attack spec so a GM reroll can re-roll one target's hit.
+    const attackRollData = {
+      attackRollDie,
+      burstFire,
+      modifier,
+      stat,
+      damageBonus,
+      effectiveSkillRank: rollData.effectiveSkillRank,
+      actor: { ab: rollData.actor?.ab ?? 0, meleeAb: rollData.actor?.meleeAb ?? 0 },
+      weapon: { ab: this.ab },
+    };
 
     const dialogData = {
       actor,
@@ -260,6 +306,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
       traumaDamage,
       traumaRollRender,
       gearCondition,
+      targetResults,
     };
     const rollMode = getChatMessageMode();
     const diceData = Roll.fromTerms([foundry.dice.terms.PoolTerm.fromRolls(rollArray)]);
@@ -297,8 +344,143 @@ export default class SWNWeapon extends SWNBaseGearItem {
         }
       };
     }
+    // Persist everything the target table needs to re-render without re-rolling.
+    if (targetResults) {
+      chatData.flags = foundry.utils.mergeObject(chatData.flags ?? {}, {
+        swnr: {
+          targetKind: "weapon",
+          weaponUuid: this.parent.uuid,
+          actorId: actor?.id ?? null,
+          attackDieString: dieString,
+          attackRollData,
+          mainDamage: damageRoll?.total ?? 0,
+          shockDamage: shockDamageValue,
+          shockAC: shockConfigured ? this.shock.ac : null,
+          traumaTriggered,
+          traumaDamage: traumaDamageValue,
+          isMelee: this.isMelee,
+          targetResults,
+          weaponCardData: {
+            diceTooltip,
+            shock_roll,
+            shock_content,
+            ammoRatio: dialogData.ammoRatio,
+            traumaRollRender,
+            traumaDamage,
+            gearCondition,
+          },
+        },
+      });
+    }
     applyChatMessageMode(chatData, rollMode);
-    getDocumentClass("ChatMessage").create(chatData);
+    const chatMessage = await getDocumentClass("ChatMessage").create(chatData);
+
+    // Apply resolved targets (owned directly; others fall back to GM relay).
+    if (targetResults && chatMessage) {
+      await applyTargetResults(chatMessage, this.parent);
+    }
+  }
+
+  /**
+   * Suppressive fire: auto-hit every targeted (eligible) token for half the
+   * weapon's damage; a successful Evasion save negates it. SWN rounds the half
+   * down; CWN rounds up and rolls the Trauma Die per victim (Traumatic Hits).
+   * Cover eligibility is DM fiat via which tokens are targeted. Spends double ammo.
+   * @param {number} damageBonus
+   * @param {number} stat - the attacker's damage stat mod
+   * @param {number} _modifier - unused (suppression auto-hits); kept for call parity
+   */
+  async rollSuppression(damageBonus, stat, _modifier) {
+    const item = this.parent;
+    const actor = item.actor;
+    if (!actor) return;
+
+    const ruleset = game.settings.get("swnr", "suppressiveFire");
+    if (ruleset === "off") return;
+    if (!this.ammo.suppress) {
+      ui.notifications?.error(`${item.name} cannot fire to suppress.`);
+      return;
+    }
+    if (!this.hasAmmo) {
+      ui.notifications?.error(`Your ${item.name} is out of ammo!`);
+      return;
+    }
+
+    // Suppression spends double the usual single-shot ammunition (2 rounds).
+    const SUPPRESS_COST = 2;
+    const finiteAmmo = this.ammo.type !== "none" && this.ammo.type !== "infinite";
+    if (finiteAmmo && this.ammo.value < SUPPRESS_COST) {
+      ui.notifications?.error(`Your ${item.name} does not have enough ammo to suppress!`);
+      return;
+    }
+
+    if (!game.user?.targets?.size) {
+      ui.notifications?.warn("Target the tokens caught in the suppression (not under hard cover), then fire.");
+      return;
+    }
+
+    const rollData = { actor: actor.getRollData(), weapon: this, stat, damageBonus };
+    let damageRoll = new Roll(this.damage + " + @stat + @damageBonus", rollData);
+    damageRoll = this.safeDamageRoll(damageRoll);
+    await damageRoll.roll();
+    const damageRender = await damageRoll.render();
+
+    const ctx = {
+      damageTotal: damageRoll.total,
+      ruleset,
+      useTrauma: game.settings.get("swnr", "useTrauma") ? true : false,
+      traumaDie: this.trauma?.die ?? null,
+      traumaRating: this.trauma?.rating ?? null,
+    };
+    const targetResults = await resolveSuppressionTargets(item, ctx);
+    if (!targetResults) return;
+
+    // Spend double ammo.
+    const ammoSpent = finiteAmmo ? SUPPRESS_COST : 0;
+    if (finiteAmmo) {
+      const newAmmoTotal = Math.max(0, this.ammo.value - SUPPRESS_COST);
+      await item.update({ system: { "ammo.value": newAmmoTotal } });
+      if (newAmmoTotal === 0) ui.notifications?.warn(`Your ${item.name} is now out of ammo!`);
+    }
+
+    const template = "systems/swnr/templates/chat/suppress-fire.hbs";
+    const cardData = {
+      actor,
+      weapon: item,
+      suppress: true,
+      ruleset,
+      damageRoll: damageRender,
+      ammoSpent,
+      targetResults,
+    };
+    const chatContent = await foundry.applications.handlebars.renderTemplate(template, cardData);
+    const rollMode = getChatMessageMode();
+    const chatData = {
+      speaker: ChatMessage.getSpeaker({ actor: actor ?? undefined }),
+      content: chatContent,
+      roll: JSON.stringify(damageRoll),
+      rolls: [damageRoll],
+      flags: {
+        swnr: {
+          targetKind: "weapon",
+          suppress: true,
+          ruleset,
+          weaponUuid: item.uuid,
+          actorId: actor?.id ?? null,
+          damageTotal: damageRoll.total,
+          useTrauma: ctx.useTrauma,
+          traumaDie: ctx.traumaDie,
+          traumaRating: ctx.traumaRating,
+          suppressDamageData: { stat, damageBonus },
+          targetResults,
+          weaponCardData: { damageRoll: damageRender, ammoSpent },
+        },
+      },
+    };
+    applyChatMessageMode(chatData, rollMode);
+    const chatMessage = await getDocumentClass("ChatMessage").create(chatData);
+
+    if (chatMessage) await applyTargetResults(chatMessage, item);
   }
 
   async roll(shiftKey = false) {
@@ -323,6 +505,9 @@ export default class SWNWeapon extends SWNBaseGearItem {
     const ammo = this.ammo;
     const burstFireHasAmmo =
       ammo.type !== "none" && ammo.burst && ammo.value >= 3;
+    // Suppressive fire is offered when the world rule is on and the weapon supports it.
+    const canSuppress =
+      game.settings.get("swnr", "suppressiveFire") !== "off" && ammo.suppress;
 
     let dmgBonus = 0;
 
@@ -386,6 +571,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
       statName: statName,
       skill: this.skill,
       burstFireHasAmmo,
+      canSuppress,
       stats: actor.system.stats,
     };
     const template = "systems/swnr/templates/dialogs/roll-attack.hbs";
@@ -394,6 +580,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
     const _rollForm = async (_event, button, html) => {
       const modifier = parseInt(button.form.elements.modifier.value);
       const burstFire = (button.form.elements.burstFire?.checked) ? true : false;
+      const suppress = (button.form.elements.suppress?.checked) ? true : false;
       const skillId = button.form.elements.skill?.value || this.skill;
 
       if (!actor) {
@@ -460,6 +647,11 @@ export default class SWNWeapon extends SWNBaseGearItem {
             skill: skillId,
           },
         });
+      }
+
+      // Suppressive fire is a distinct resolution (auto-hit, Evasion save, half damage).
+      if (suppress) {
+        return this.rollSuppression(dmgBonus, stat.mod, modifier);
       }
 
       return this.rollAttack(dmgBonus, stat.mod, skillMod, modifier, burstFire);
