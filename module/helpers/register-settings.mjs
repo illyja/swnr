@@ -150,6 +150,20 @@ export const registerSettings = function () {
     default: true,
   });
 
+  game.settings.register("swnr", "suppressiveFire", {
+    name: "swnr.settings.suppressiveFire",
+    hint: "swnr.settings.suppressiveFireHint",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      off: "swnr.settings.suppressiveFireChoice.off",
+      swn: "swnr.settings.suppressiveFireChoice.swn",
+      cwn: "swnr.settings.suppressiveFireChoice.cwn",
+    },
+    default: "off",
+  });
+
   game.settings.register("swnr", "showAccess", {
     name: "swnr.settings.showAccess",
     hint: "swnr.settings.showAccessHint",

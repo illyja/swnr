@@ -141,6 +141,12 @@ Hooks.once('init', function () {
     makeDefault: true,
     label: 'SWN.SheetLabels.Item',
   });
+
+  // Preload shared Handlebars partials referenced via {{> path}} in chat cards.
+  foundry.applications.handlebars.loadTemplates([
+    'systems/swnr/templates/chat/partials/target-table.hbs',
+    'systems/swnr/templates/chat/suppress-fire.hbs',
+  ]);
 });
 
 /* -------------------------------------------- */

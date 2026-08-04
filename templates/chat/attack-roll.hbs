@@ -6,7 +6,7 @@
   
   {{# if diceTooltip.damage}}
   <span>{{localize 'swnr.weapon.damage'}}:</span>
-  <span title="{{ diceTooltip.damageExplain }}" class="roll roll-damage">{{{ diceTooltip.damage }}}</span>
+  <span title="{{ diceTooltip.damageExplain }}" class="roll roll-damage roll-main-damage">{{{ diceTooltip.damage }}}</span>
   {{else}}
   <div class="flex-center" data-tooltip="{{diceTooltip.damageExplain}}">
     <button class="dmgroll" data-flagns="swnr" data-flagkey="damageRoll">Roll Damage: {{diceTooltip.damageFormula}}</button>
@@ -45,6 +45,11 @@
     {{/if}}
   {{/if}}
 
+  {{! Per-target automation results (only present when applyToTargets fired) }}
+  {{> "systems/swnr/templates/chat/partials/target-table.hbs"}}
+
+  {{! Manual save button is redundant once saves auto-roll per target }}
+  {{#unless targetResults}}
   {{#if weapon.system.save}}
   <div class="card-buttons flex-center">
       <button data-action="save" data-save="{{weapon.system.save}}">
@@ -52,6 +57,7 @@
       </button>
   </div>
   {{/if}}
+  {{/unless}}
 
   {{#if gearCondition}}
     {{localize 'swnr.sheet.gear.conditionLabel'}}: {{localize (concat 'swnr.sheet.gear.condition.' gearCondition)}} <br>

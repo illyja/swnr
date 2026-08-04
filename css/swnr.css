@@ -838,6 +838,22 @@
   padding: 0 0.5rem;
 }
 
+.suppress-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.3rem 0;
+  padding: 0.25rem 0.5rem;
+  font-weight: bold;
+  border-left: 3px solid #b5651d;
+  background: rgba(181, 101, 29, 0.12);
+}
+
+.suppress-ammo {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+
 /* Styles limited to swnr sheets */
 .swnr {
   /* Consumption UI Styling */

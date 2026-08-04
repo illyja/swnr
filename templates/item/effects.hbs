@@ -44,7 +44,7 @@
             <div class='effect-source'>{{effect.sourceName}}</div>
             <div class='effect-duration'>{{effect.duration.label}}</div>
             <div class='effect-controls effect-controls flexrow'>
-              {{#if (and @root.editable (eq @root.item.type "power"))}}
+              {{#if (and @root.editable (or (eq @root.item.type "power") (eq @root.item.type "weapon")))}}
               <a
                 class='effect-control effect-target-flag'
                 data-action='toggleTargetFlag'

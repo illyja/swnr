@@ -2012,6 +2012,13 @@
       "useCWNArmorHint": "Use CWN armor options (soak, melee and ranged AC)?",
       "useCWNCyber": "Use CWN Cyber Options?",
       "useCWNCyberHint": "Use CWN cyber options (concealment, type, complications, etc)?",
+      "suppressiveFire": "Suppressive Fire Rules",
+      "suppressiveFireHint": "Enable automated suppressive fire for suppress-capable weapons, using the chosen ruleset. Targets you select (eligible = not under hard cover) roll an Evasion save or take half the weapon's damage.",
+      "suppressiveFireChoice": {
+        "off": "Off",
+        "swn": "SWN Revised (half, round down)",
+        "cwn": "CWN (half round up, per-target Trauma)"
+      },
       "showAccess" : "Show CWN Access?",
       "showAccessHint" : "Show Access on the character sheet?",
       "search": "Compendium item search?",
@@ -2149,7 +2156,27 @@
       "burst": "Use Burst Fire",
       "skillAddDamage": "Skill adds to damage",
       "skillAddShockDamage": "Skill adds to shock",
-      "remember": "Remember these settings (do not ask again, reset in edit)"
+      "remember": "Remember these settings (do not ask again, reset in edit)",
+      "targeting": {
+        "hint": "When enabled, attacking compares the to-hit roll against each targeted token's AC, applies damage (or trauma/shock) to hits, and rolls any save. Requires damage auto-roll.",
+        "miss": "miss",
+        "shockAmount": "{n} shock",
+        "notify": {
+          "rerolled": "{target}: re-rolled attack — {effect}"
+        }
+      },
+      "suppress": {
+        "checkbox": "Suppressive Fire",
+        "banner": "Suppressive Fire — Evasion save or half damage",
+        "ammoSpent": "{n} rounds spent",
+        "damageLabel": "Damage (halved per target)",
+        "saved": "saved",
+        "damage": "{n} dmg",
+        "trauma": "{n} trauma",
+        "notify": {
+          "rerolled": "{target}: re-rolled Evasion save — {effect}"
+        }
+      }
     },
     "titles": {
       "savingThrow": "{throwType} Saving Throw"
@@ -2225,7 +2252,7 @@
       },
       "apply": "Apply",
       "applyAll": "Apply all",
-      "reroll": "Reroll save",
+      "reroll": "Reroll",
       "reapply": "Re-apply as before",
       "undo": "Undo",
       "undoAll": "Undo all",

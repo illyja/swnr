@@ -1,0 +1,19 @@
+<div class="chat-card item-card" data-actor-id="{{actor._id}}" data-item-id="{{weapon._id}}">
+  <h4 title="{{ weapon.system.description }}">{{ weapon.name }}</h4>
+
+  <div class="suppress-banner">
+    <i class="fas fa-burst"></i> {{localize "swnr.weapon.suppress.banner"}}
+  </div>
+
+  {{#if damageRoll}}
+    <span>{{localize "swnr.weapon.suppress.damageLabel"}}:</span>
+    <span class="roll roll-suppress-damage">{{{ damageRoll }}}</span>
+  {{/if}}
+
+  {{#if ammoSpent}}
+    <div class="suppress-ammo">{{localize "swnr.weapon.suppress.ammoSpent" n=ammoSpent}}</div>
+  {{/if}}
+
+  {{! Per-target suppression results (Evasion save / half damage / trauma) }}
+  {{> "systems/swnr/templates/chat/partials/target-table.hbs"}}
+</div>
