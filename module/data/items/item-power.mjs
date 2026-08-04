@@ -1,6 +1,7 @@
 import SWNItemBase from './base-item.mjs';
 import SWNShared from '../shared.mjs';
 import { resolvePowerTargets, applyPowerResults } from '../../helpers/power-targeting.mjs';
+import { applyChatMessageMode, getChatMessageMode } from '../../helpers/utils.mjs';
 
 export default class SWNPower extends SWNItemBase {
   static LOCALIZATION_PREFIXES = [
@@ -435,7 +436,7 @@ export default class SWNPower extends SWNItemBase {
   async _createPowerChatCard(powerRoll = null, consumptionResults = [], targetResults = null) {
     const item = this.parent;
     const actor = item.actor;
-    const rollMode = game.settings.get("core", "rollMode");
+    const rollMode = getChatMessageMode();
     const powerRollHTML = powerRoll ? await powerRoll.render() : null;
 
     // Calculate strain cost from consumption results
@@ -479,7 +480,7 @@ export default class SWNPower extends SWNItemBase {
     const chatData = {
       speaker: ChatMessage.getSpeaker({ actor: actor }),
       content: chatContent,
-      roll: powerRoll ? JSON.stringify(powerRoll) : null,
+      rolls: powerRoll ? [powerRoll] : [],
       // Persist everything a re-render needs, so chat re-renders never re-roll
       // saves or re-apply effects (see helpers/power-targeting.mjs).
       flags: {
@@ -495,7 +496,7 @@ export default class SWNPower extends SWNItemBase {
       }
     };
 
-    getDocumentClass("ChatMessage").applyRollMode(chatData, rollMode);
+    applyChatMessageMode(chatData, rollMode);
     return chatData;
   }
 
@@ -554,14 +555,14 @@ export default class SWNPower extends SWNItemBase {
       consumableRequirements,
       targetResults
     };
-    const rollMode = game.settings.get("core", "rollMode");
+    const rollMode = getChatMessageMode();
 
     const template = "systems/swnr/templates/chat/power-usage.hbs";
     const chatContent = await foundry.applications.handlebars.renderTemplate(template, dialogData);
     const chatData = {
       speaker: ChatMessage.getSpeaker({ actor: actor ?? undefined }),
       content: chatContent,
-      roll: JSON.stringify(powerRoll),
+      rolls: [powerRoll],
       flags: {
         swnr: {
           powerUuid: item.uuid,
@@ -574,7 +575,7 @@ export default class SWNPower extends SWNItemBase {
         }
       }
     };
-    getDocumentClass("ChatMessage").applyRollMode(chatData, rollMode);
+    applyChatMessageMode(chatData, rollMode);
     const chatMessage = await getDocumentClass("ChatMessage").create(chatData);
 
     // Apply resolved targets (owned directly; others fall back to manual)
@@ -916,7 +917,7 @@ export default class SWNPower extends SWNItemBase {
       value: i.system?.uses?.value || 0,
       max: i.system?.uses?.max || (i.system?.uses?.value || 0)
     }));
-    const content = await renderTemplate(template, { items });
+    const content = await foundry.applications.handlebars.renderTemplate(template, { items });
 
     return new Promise((resolve) => {
       const dialogId = `swnr-consume-select-${actor.id}-${Date.now()}`;

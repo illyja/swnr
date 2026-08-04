@@ -1,3 +1,128 @@
+import { applyChatMessageMode, getChatMessageMode } from './utils.mjs';
+
+function _canApplyChatDamage(li) {
+  const message = game.messages.get(li.dataset.messageId);
+  // canvas.tokens is null with no active scene, or when the canvas is
+  // disabled -- an unguarded read throws when opening any chat context menu.
+  if (!canvas.tokens?.controlled.length) return false;
+
+  // Attack cards made with the "Auto Damage Roll" setting off carry no damage
+  // roll at all -- the card renders a "Roll Damage" button instead, so it lacks
+  // the "roll roll-damage" marker below and its only roll is the to-hit d20.
+  // Without this guard the menu offers to apply the attack roll as damage.
+  // item-weapon.mjs stamps this flag on exactly those cards.
+  if (message?.getFlag("swnr", "damageRoll")) return false;
+
+  // v13 rolls excluding messages with damage rolls
+  return (message?.rolls?.length == 1 && !message?.content.includes("roll roll-damage"));
+}
+
+function _getChatDamageAmount(message) {
+  // v13 rolls
+  if (message?.rolls?.length) {
+    return message.rolls[0].total;
+  }
+
+  return null;
+}
+
+async function _openDamageModifierDialog(baseDamage) {
+  // DialogV2's ok callback runs only when the button is pressed. The legacy
+  // Dialog this replaced applied damage from its close: handler, which fires on
+  // every teardown path -- so dismissing with Escape still applied whatever had
+  // been typed.
+  const modifier = await foundry.applications.api.DialogV2.prompt({
+    window: { title: "Apply Modifier to Damage" },
+    content: `
+      <div class="form-group">
+        <label>Modifier to damage (${baseDamage}) </label>
+        <input type="text" name="inputField" autofocus>
+      </div>`,
+    ok: {
+      icon: "fas fa-check",
+      label: "Apply",
+      callback: (_event, button) => button.form.elements.inputField.value,
+    },
+    rejectClose: false,
+  });
+
+  if (!modifier) {
+    return;
+  }
+
+  const nModifier = Number(modifier);
+  if (isNaN(nModifier)) {
+    ui.notifications?.error(modifier + " is not a number");
+    return;
+  }
+  applyHealthDrop(baseDamage + nModifier);
+}
+
+// Shared by the #callback and #onClick forms of the damage context-menu
+// entries, which differ only in argument order. `target` is the .context-item's
+// chat message element in both.
+function _applyChatDamageOption(opt, target) {
+  const message = game.messages.get(target.dataset.messageId);
+  const damage = _getChatDamageAmount(message);
+  if (damage === null) {
+    return;
+  }
+
+  if (opt.isModified) {
+    _openDamageModifierDialog(damage);
+  } else {
+    applyHealthDrop(Math.floor(damage * opt.multiplier));
+  }
+}
+
+export const addChatMessageContextOptions = function (html, options) {
+  const damageOptions = [
+    {
+      name: game.i18n.localize("swnr.chat.healthButtons.fullDamage"),
+      icon: '<i class="fas fa-user-minus"></i>',
+      multiplier: 1
+    },
+    {
+      name: game.i18n.localize("swnr.chat.healthButtons.fullDamageModified"),
+      icon: '<i class="fas fa-user-edit"></i>',
+      isModified: true
+    },
+    {
+      name: game.i18n.localize("swnr.chat.healthButtons.halfDamage"),
+      icon: '<i class="fas fa-user-minus"></i>',
+      multiplier: 0.5
+    },
+    {
+      name: game.i18n.localize("swnr.chat.healthButtons.fullHealing"),
+      icon: '<i class="fas fa-user-plus"></i>',
+      multiplier: -1
+    },
+  ];
+
+  damageOptions.forEach(opt => {
+    options.push({
+      // v14 deprecated ContextMenuEntry#condition in favour of #visible, but
+      // #visible does not exist on v13 (where it would be ignored, showing the
+      // entry unconditionally). Setting both keeps either core happy: v14 reads
+      // #visible and skips the deprecation warning, v13 falls back to #condition.
+      condition: _canApplyChatDamage,
+      visible: _canApplyChatDamage,
+      icon: opt.icon,
+      // Same story for #name -> #label and #callback -> #onClick, both removed
+      // in v16. Core warns only when the old key is present without the new one,
+      // so carrying both is silent on v14 and unchanged on v13. Note the handler
+      // arguments are swapped between them: onClick(event, target) against the
+      // legacy callback(target, event).
+      name: opt.name,
+      label: opt.name,
+      callback: (target) => _applyChatDamageOption(opt, target),
+      onClick: (_event, target) => _applyChatDamageOption(opt, target),
+    });
+  });
+
+  return options;
+}
+
 export function chatListeners(message, html) {
 //  html.on("click", "button.dmgroll", _onDmgRollClick.c(this));
   html.on("click", "button.dmgroll", (event) => _onDmgRollClick.call(this, event, message));
@@ -8,8 +133,12 @@ export function chatListeners(message, html) {
     (event) => _onTargetApplyClick(event, message));
   // GM-only controls (undo/reroll) are rendered for everyone but removed for players
   if (!game.user?.isGM) html.find(".gm-only").remove();
-  // Add reroll buttons to all dice rolls
-  html.find(".roll").each((_i, div) => {
+  // Add reroll buttons to all dice rolls.
+  // Must target ".dice-roll" (the roll container holding .dice-formula and
+  // .dice-total), not ".roll" -- core puts "roll" on each individual die
+  // (<li class="roll die d20">), so _addRerollButton() found no .dice-total
+  // and silently bailed, leaving rerolls missing from every chat card.
+  html.find(".dice-roll").each((_i, div) => {
     _addRerollButton($(div));
   });
   
@@ -89,7 +218,7 @@ function getRerollButton(
     .attr("title", game.i18n.localize("swnr.chat.rerollButton"))
     .append($("<i>").addClass("fas fa-redo"));
   rerollButton.on("click", async (ev) => {
-    const rollMode = game.settings.get("core", "rollMode");
+    const rollMode = getChatMessageMode();
     ev.stopPropagation();
     const roll = new Roll(diceRoll);
     await roll.roll();
@@ -100,13 +229,16 @@ function getRerollButton(
       title: flavor,
       isAttack,
     };
-    const chatContent = await renderTemplate(chatTemplate, chatDialogData);
+    const chatContent = await foundry.applications.handlebars.renderTemplate(chatTemplate, chatDialogData);
     const chatData = {
       speaker: ChatMessage.getSpeaker(),
-      roll: JSON.stringify(roll),
+      // "rolls" is the current field; the legacy singular "roll" is no longer
+      // honoured, which left rerolled messages with an empty message.rolls
+      // (breaking Dice So Nice and anything reading rolls off the message).
+      rolls: [roll],
       content: chatContent
     };
-    getDocumentClass("ChatMessage").applyRollMode(chatData, rollMode);
+    applyChatMessageMode(chatData, rollMode);
     getDocumentClass("ChatMessage").create(chatData);
   });
   return rerollButton;
@@ -148,7 +280,14 @@ export function _addRerollButton(html) {
 
 export function _addHealthButtons(html) {
   const totalDiv = html.find(".dice-total");
-  
+  // An attack card rendered with "Auto Damage Roll" off has a .roll-damage
+  // section holding a "Roll Damage" button rather than a rolled total, so there
+  // is nothing to attach to. Bail the same way _addRerollButton does, rather
+  // than falling through to parseInt("") and logging on every chat render.
+  if (!totalDiv || totalDiv.length === 0) {
+    return;
+  }
+
   // Check if health buttons already exist to prevent duplicates
   const existingContainer = totalDiv.parent().find(".dmgBtn-container");
   if (existingContainer.length > 0 && existingContainer.find(".dice-total-fullDamage-btn").length > 0) {
@@ -204,37 +343,7 @@ export function _addHealthButtons(html) {
 
   fullDamageModifiedButton.on("click", (ev) => {
     ev.stopPropagation();
-    new Dialog({
-      title: "Apply Modifier to Damage",
-      content: `
-          <form>
-            <div class="form-group">
-              <label>Modifier to damage (${total}) </label>
-              <input type='text' name='inputField'></input>
-            </div>
-          </form>`,
-      buttons: {
-        yes: {
-          icon: "<i class='fas fa-check'></i>",
-          label: `Apply`,
-        },
-      },
-      default: "yes",
-      close: (html) => {
-        const form = html[0].querySelector("form");
-        const modifier = ((
-          form.querySelector('[name="inputField"]')
-        ))?.value;
-        if (modifier && modifier != "") {
-          const nModifier = Number(modifier);
-          if (nModifier) {
-            applyHealthDrop(total + nModifier);
-          } else {
-            ui.notifications?.error(modifier + " is not a number");
-          }
-        }
-      },
-    }).render(true);
+    _openDamageModifierDialog(total);
   });
 
   halfDamageButton.on("click", (ev) => {
@@ -503,7 +612,7 @@ export async function _onDmgRollClick(event, message) {
       traumaDamage = await traumaDamage.render();
     }
   }
-  const rollMode = game.settings.get("core", "rollMode");
+  const rollMode = getChatMessageMode();
 
   const damageRollTemplate = "systems/swnr/templates/chat/damage-roll.hbs";
   const damageRollData = {
@@ -515,16 +624,15 @@ export async function _onDmgRollClick(event, message) {
     traumaRollRender,
     traumaDamage,
   };
-  const damageRollContent = await renderTemplate(damageRollTemplate, damageRollData);
+  const damageRollContent = await foundry.applications.handlebars.renderTemplate(damageRollTemplate, damageRollData);
   const chatData = {
     speaker: ChatMessage.getSpeaker({ actor }),
     content: damageRollContent,
-    roll: JSON.stringify(damageRoll),
     rolls: [damageRoll],
     content: damageRollContent,
     flavor: payload.flavor,
   };
-  getDocumentClass("ChatMessage").applyRollMode(chatData, rollMode);
+  applyChatMessageMode(chatData, rollMode);
   getDocumentClass("ChatMessage").create(chatData);
 }
 
@@ -613,7 +721,10 @@ export async function _onChatCardAction(
                 statData.mod,
                 dice,
                 skillRank,
-                0
+                0,
+                // npcs have no tweak block; characters carry a per-actor
+                // adjustment to the world unskilled penalty.
+                t.system.tweak?.modifiers?.unskilledPenalty ?? 0
               );
             }
           }
@@ -1238,7 +1349,7 @@ export async function _onChatCardAction(
 export async function welcomeMessage() {
 		const template = "systems/swnr/templates/chat/welcome.hbs";
 
-		const content = await renderTemplate(template, {});
+		const content = await foundry.applications.handlebars.renderTemplate(template, {});
 		const card = {
 			content,
 			user: game.user.id,

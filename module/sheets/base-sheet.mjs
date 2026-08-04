@@ -1,5 +1,6 @@
 const { api, sheets } = foundry.applications;
 import { ContainerHelper } from '../helpers/container-helper.mjs';
+import { getChatMessageMode } from '../helpers/utils.mjs';
 
 /**
  * Extend the basic ActorSheet with some very simple modifications
@@ -524,7 +525,7 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
       await roll.toMessage({
         speaker: ChatMessage.getSpeaker({ actor: this.actor }),
         flavor: label,
-        rollMode: game.settings.get('core', 'rollMode'),
+        rollMode: getChatMessageMode(),
       });
       return roll;
     }
@@ -658,7 +659,7 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
 
           if (currencyType === 'custom') {
             const currencyIdx = target.dataset.currencyIdx;
-            let extraCurrencies = duplicate(this.actor.system.credits.extraCurrencies);
+            let extraCurrencies = foundry.utils.duplicate(this.actor.system.credits.extraCurrencies);
             const currency = extraCurrencies[currencyIdx];
             if (currency == undefined || currency == null) {
               ui.notifications?.error("Invalid currency");
