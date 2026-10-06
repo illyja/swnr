@@ -3,6 +3,43 @@ import { ContainerHelper } from '../helpers/container-helper.mjs';
 import { getChatMessageMode } from '../helpers/utils.mjs';
 
 /**
+ * Draw up to `needed` loose rounds of `ammoType` from an actor's `count`
+ * consumables: the preferred item first, then the rest — readied items first,
+ * and partially used boxes before full ones so fewer half-empty boxes remain.
+ * @param {Actor} actor
+ * @param {string} ammoType
+ * @param {number} needed
+ * @param {Item|null} preferred
+ * @returns {Promise<{drawn: number, used: {name: string, n: number}[]}>}
+ */
+async function drawLooseRounds(actor, ammoType, needed, preferred = null) {
+  const others = actor.items
+    .filter((i) => i.type === 'item'
+      && i.system.uses?.consumable === 'count'
+      && i.system.uses?.ammo === ammoType
+      && i.id !== preferred?.id
+      && i.system.uses.value > 0
+      && i.system.quantity > 0)
+    .sort((a, b) =>
+      ((b.system.location === 'readied') - (a.system.location === 'readied'))
+      || (a.system.uses.value - b.system.uses.value));
+  const order = preferred ? [preferred, ...others] : others;
+  let drawn = 0;
+  const used = [];
+  for (const src of order) {
+    if (drawn >= needed) break;
+    const n = await src.system.drawRounds(needed - drawn);
+    if (n > 0) {
+      drawn += n;
+      used.push({ name: src.name, n });
+    }
+  }
+  return { drawn, used };
+}
+
+const describeRounds = (used) => used.map((u) => `${u.n} from ${u.name}`).join(", ");
+
+/**
  * Extend the basic ActorSheet with some very simple modifications
  * @extends {ActorSheetV2}
  */
@@ -735,19 +772,21 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
         //uses the whole clip with capacity set by the weapon
         ammoToAdd = ammoMax;
         await ammoItem.system.removeOneUse();
+        ammoReloadDesc = ` using ${ammoItem.name} from your inventory`;
       }  else if (ammoItem.system.uses.consumable == "count") {
-        // Take exactly the loose rounds needed (or whatever is left), spanning
-        // the boxes in the stack.
-        ammoToAdd = await ammoItem.system.drawRounds(ammoNeeded);
+        // Take exactly the loose rounds needed: the selected source first, then
+        // any other loose rounds of the same ammo type in the inventory.
+        const { drawn, used } = await drawLooseRounds(this.actor, ammoType, ammoNeeded, ammoItem);
+        ammoToAdd = drawn;
         if (ammoToAdd <= 0) {
-          ui.notifications?.error(`${ammoItem.name} is empty. Hold shift+click to bypass and reload.`);
+          ui.notifications?.error(`No loose rounds left for ${item.name}. Hold shift+click to bypass and reload.`);
           return;
         }
+        ammoReloadDesc = ` with ${describeRounds(used)}`;
       } else {
         ui.notifications.error("Item/Ammo consumable is not set to bundle or count");
         return;
       }
-      ammoReloadDesc = ` using ${ammoItem.name} from your inventory`;
       if (ammoItem.system.location != "readied") {
         extraMessage+=" Ammo source was not readied.";
       }
@@ -827,14 +866,15 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
         if (!source) return;
       }
 
-      const drawn = await source.system.drawRounds(needed);
+      // The chosen source first, then any other loose rounds of this ammo type.
+      const { drawn, used } = await drawLooseRounds(this.actor, ammo, needed, source);
       if (drawn <= 0) return;
       const newValue = value + drawn;
       await mag.update({ "system.uses.value": newValue });
 
       ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        content: `<p>Loaded ${drawn} round(s) into ${mag.name} from ${source.name} (${newValue}/${max}).</p>`,
+        content: `<p>Loaded ${drawn} round(s) into ${mag.name} (${describeRounds(used)}; ${newValue}/${max}).</p>`,
       });
     }
 
