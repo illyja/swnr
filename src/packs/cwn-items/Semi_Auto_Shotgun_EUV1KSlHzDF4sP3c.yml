@@ -15,6 +15,7 @@ _stats:
   lastModifiedBy: lKC5x4Yf023Bizof
 system:
   ammo:
+    magClass: semi-auto-shotgun
     burst: false
     max: 6
     suppress: false

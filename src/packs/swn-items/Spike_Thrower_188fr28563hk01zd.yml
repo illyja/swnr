@@ -16,6 +16,7 @@ _id: 188fr28563hk01zd
 system:
   ab: 0
   ammo:
+    magClass: spike-thrower
     burst: true
     longReload: false
     max: 15

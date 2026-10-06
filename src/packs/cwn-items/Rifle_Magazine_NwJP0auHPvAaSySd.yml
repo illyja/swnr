@@ -1,0 +1,52 @@
+name: Rifle Magazine
+type: item
+img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
+folder: C0XZGs5XpoD55XU7
+flags: {}
+_stats:
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+  coreVersion: '13.346'
+  systemId: swnr
+  systemVersion: 2.3.1
+  createdTime: 1754265737000
+  modifiedTime: 1754265737000
+  lastModifiedBy: swnrMagTooling00
+system:
+  cost: 6
+  description: >-
+    A loaded rifle magazine holding 6 rounds. Load it into a matching weapon with the reload control; a swapped-out magazine keeps its remaining rounds and can be topped off and reused.
+  encumbrance: 1
+  noEncReadied: false
+  favorite: false
+  quantity: 1
+  bundle:
+    bundled: false
+  tl: null
+  location: stowed
+  quality: stock
+  container:
+    isContainer: false
+    isOpen: true
+    capacity:
+      max: 0
+      value: 0
+  roll:
+    diceNum: 1
+    diceSize: d20
+    diceBonus: +@str.mod+ceil(@lvl / 2)
+  uses:
+    magClass: rifle
+    max: 6
+    value: 6
+    emptyQuantity: 0
+    consumable: magazine
+    ammo: ammo
+    keepEmpty: true
+effects: []
+ownership:
+  default: 0
+_id: NwJP0auHPvAaSySd
+sort: 140000
+_key: '!items!NwJP0auHPvAaSySd'

@@ -15,6 +15,7 @@ _stats:
   lastModifiedBy: lKC5x4Yf023Bizof
 system:
   ammo:
+    magClass: light-pistol
     burst: false
     max: 15
     suppress: false

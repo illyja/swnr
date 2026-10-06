@@ -17,10 +17,10 @@ system:
   favorite: false
   quantity: 1
   uses:
-    max: 1
-    value: 1
+    max: 0
+    value: 0
     ammo: typeBPower
-    consumable: bundle
+    consumable: magazine
     keepEmpty: true
     emptyQuantity: 0
   bundle:

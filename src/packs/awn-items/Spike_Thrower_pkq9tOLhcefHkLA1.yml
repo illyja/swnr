@@ -45,9 +45,10 @@ system:
     ac: 10
   ab: 0
   ammo:
+    magClass: spike-thrower
     longReload: false
     suppress: false
-    type: typeAPower
+    type: ammo
     max: 15
     value: 15
     burst: true

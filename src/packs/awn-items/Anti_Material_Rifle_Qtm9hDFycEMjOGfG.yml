@@ -55,6 +55,7 @@ system:
     ac: 10
   ab: 0
   ammo:
+    magClass: anti-material-rifle
     longReload: false
     suppress: false
     type: ammo
