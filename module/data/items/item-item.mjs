@@ -39,6 +39,9 @@ export default class SWNItemItem extends SWNBaseGearItem {
       emptyQuantity: SWNShared.requiredNumber(0),
       consumable: SWNShared.stringChoices('none', CONFIG.SWN.itemConsumableTypes),
       ammo: SWNShared.stringChoices("none", CONFIG.SWN.ammoTypes),
+      // Magazine compatibility key (see weapon ammo.magClass). Blank = a
+      // universal magazine that fits any weapon of the matching ammo type.
+      magClass: SWNShared.nullableString(),
       keepEmpty: new fields.BooleanField({
         initial: true,
         required: true,
@@ -46,6 +49,17 @@ export default class SWNItemItem extends SWNBaseGearItem {
       }),
     });
     return schema;
+  }
+
+  /**
+   * True when this item is a magazine: a self-contained clip whose uses.value
+   * holds its own remaining rounds and uses.max its capacity. Magazines are
+   * loaded into weapons and swapped by the reload system, retaining partial
+   * round counts across swaps.
+   * @returns {boolean}
+   */
+  get isMagazine() {
+    return this.uses?.consumable === "magazine";
   }
 
   prepareDerivedData() {
@@ -61,6 +75,35 @@ export default class SWNItemItem extends SWNBaseGearItem {
     }  else {
       this.formula = null;
     }
+  }
+
+  /**
+   * Draw up to `n` loose rounds from this `count` consumable, spanning the
+   * boxes in its stack. Exhausting a box is delegated to removeOneUse() so the
+   * usual stack / keepEmpty / quantity bookkeeping applies.
+   * @param {number} n  rounds wanted
+   * @returns {Promise<number>} rounds actually drawn
+   */
+  async drawRounds(n) {
+    const item = this.parent;
+    let drawn = 0;
+    for (let guard = 0; drawn < n && guard < 100; guard++) {
+      const sys = item.system;
+      const avail = sys.uses.value;
+      if (avail <= 0 || sys.quantity <= 0) break;
+      const take = Math.min(n - drawn, avail);
+      if (take < avail) {
+        await item.update({ "system.uses.value": avail - take });
+        drawn += take;
+        break;
+      }
+      // Emptying the current box: drop to its last round, then let
+      // removeOneUse() move on to the next box in the stack (or empty it).
+      if (avail > 1) await item.update({ "system.uses.value": 1 });
+      await item.system.removeOneUse();
+      drawn += take;
+    }
+    return drawn;
   }
 
   async addOneUse() {

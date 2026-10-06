@@ -38,9 +38,9 @@
 
       <!-- Damage Column -->
       <div class="flex-group-center item-prop">
-        {{item.system.damage}} 
-         {{#if (and item.system.ammo (ne item.system.ammo.type "none"))}}
-           / {{item.system.ammo.value}}
+        {{item.system.damage}}
+         {{#if (and item.system.ammo (ne item.system.ammo.type "none") (ne item.system.ammo.type "infinite"))}}
+           / {{item.system.ammo.value}}/{{item.system.ammo.max}}
          {{/if}}
       </div>
 

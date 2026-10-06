@@ -55,6 +55,7 @@ SWN.itemConsumableTypes = {
   none: 'swnr.item.consumable.none',
   count: 'swnr.item.consumable.count',
   bundle: 'swnr.item.consumable.bundle',
+  magazine: 'swnr.item.consumable.magazine',
 }
 
 SWN.fuelTypes = {

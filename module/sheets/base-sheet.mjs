@@ -549,13 +549,160 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
         ui.notifications.error("This weapon does not use ammo.");
         return;
       }
-      
+
       const ammoMax = item.system.ammo?.max;
       if (ammoMax == null) {
         console.log("Unable to find ammo max value in item", item.system);
         return;
       }
-      
+
+      const shift = event?.shiftKey || false;
+      const ammoType = item.system.ammo.type;
+      const loadedMagId = item.system.ammo.loadedMagazine;
+
+      // Refill the current source to full without consuming stock (GM bypass /
+      // ship weapons). In magazine mode this tops off the loaded magazine.
+      const instantFill = async (bypassNote) => {
+        const loadedMag = loadedMagId ? this.actor.items.get(loadedMagId) : null;
+        if (loadedMag) {
+          await loadedMag.update({ "system.uses.value": loadedMag.system.uses.max });
+        } else {
+          await item.update({ "system.ammo.value": ammoMax });
+        }
+        ChatMessage.create({
+          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+          content: `<p>Reloaded ${item.name}.${bypassNote}</p>`,
+        });
+      };
+
+      // Shift-click or ship weapons bypass ammo/source tracking entirely.
+      if (item.type === 'shipWeapon' || shift) {
+        return instantFill(shift ? " (Shift-clicked to bypass checks)" : "");
+      }
+
+      // ── Magazine mode ──────────────────────────────────────────────────
+      // Active when magazine-type ammo items of the matching type exist in
+      // inventory (or one is already loaded). Reloading swaps magazines: the
+      // outgoing magazine stays in inventory holding its remaining rounds, so
+      // partially-spent magazines persist and can be topped off later.
+      // A stale loaded-magazine id (its item was deleted) shouldn't trap a
+      // loose-ammo weapon in magazine mode — clear it and fall through.
+      const loadedMagExists = loadedMagId && this.actor.items.get(loadedMagId);
+      if (loadedMagId && !loadedMagExists) {
+        await item.update({ "system.ammo.loadedMagazine": "" });
+      }
+      // Per-weapon coupling: a weapon with a magClass only accepts magazines of
+      // the same magClass. Blank on either side is a wildcard (power cells).
+      // Only magazines that fit count towards magazine mode, so a magazine for
+      // a different gun doesn't block the loose-ammo fallback below.
+      const weaponMagClass = item.system.ammo.magClass;
+      const magClassFits = (m) =>
+        !weaponMagClass || !m.system.uses?.magClass || m.system.uses.magClass === weaponMagClass;
+      const spareMags = this.actor.items.filter(
+        (i) => i.type === 'item'
+          && i.system.uses?.consumable === 'magazine'
+          && i.system.uses?.ammo === ammoType
+          && i.id !== loadedMagId
+          && magClassFits(i)
+      );
+      if (spareMags.length > 0 || loadedMagExists) {
+        // Loadable = generic (uses.max 0, sizes to the weapon on load) or a
+        // concrete magazine that still has rounds.
+        const usable = spareMags.filter(
+          (m) => m.system.uses.max === 0 || m.system.uses.value > 0
+        );
+        if (usable.length === 0) {
+          ui.notifications?.error(
+            game.i18n.localize("swnr.weapon.noLoadedMagazine")
+          );
+          return;
+        }
+
+        // Pick a magazine — dialog when there is more than one choice.
+        let chosen = usable[0];
+        if (usable.length > 1) {
+          const fresh = game.i18n.localize("swnr.weapon.freshMagazine");
+          const options = usable
+            .map((m) => {
+              const lbl = m.system.uses.max === 0 ? fresh : `${m.system.uses.value}/${m.system.uses.max}`;
+              return `<option value="${m.id}">${foundry.utils.escapeHTML(m.name)} (${lbl})</option>`;
+            })
+            .join("");
+          const content = `<div class="form-group"><label>${game.i18n.localize("swnr.weapon.selectMagazine")}</label>
+            <select name="mag" style="flex:2;">${options}</select></div>`;
+          const magId = await foundry.applications.api.DialogV2.wait({
+            window: { title: game.i18n.localize("swnr.weapon.reloadTitle") },
+            content,
+            rejectClose: false,
+            buttons: [
+              {
+                action: "ok",
+                label: game.i18n.localize("swnr.sheet.reload-item"),
+                default: true,
+                callback: (_e, button) => button.form.elements.mag.value,
+              },
+              { action: "cancel", label: game.i18n.localize("Cancel") },
+            ],
+          });
+          if (!magId || magId === "cancel") return;
+          chosen = usable.find((m) => m.id === magId);
+          if (!chosen) return;
+        }
+
+        const oldMag = loadedMagId ? this.actor.items.get(loadedMagId) : null;
+
+        // Loading from a stack (quantity > 1) splits one magazine off so that
+        // firing only drains the loaded copy, not the whole stack.
+        let loadedMag = chosen;
+        if (chosen.system.quantity > 1) {
+          await chosen.update({ "system.quantity": chosen.system.quantity - 1 });
+          const data = chosen.toObject();
+          data.system.quantity = 1;
+          delete data._id;
+          const [created] = await this.actor.createEmbeddedDocuments("Item", [data]);
+          loadedMag = created;
+        }
+
+        // Generic magazine/cell (uses.max === 0): size it to the weapon's own
+        // capacity and fill it. From then on it is a concrete magazine that
+        // retains partial rounds/charge across future swaps.
+        if (loadedMag.system.uses.max === 0) {
+          const weaponCap = item.system.ammo.max || 0;
+          if (weaponCap <= 0) {
+            ui.notifications?.error(`${item.name} has no defined ammo capacity to size this magazine to.`);
+            return;
+          }
+          await loadedMag.update({ "system.uses.max": weaponCap, "system.uses.value": weaponCap });
+        }
+
+        await item.update({
+          "system.ammo.loadedMagazine": loadedMag.id,
+          "system.ammo.max": loadedMag.system.uses.max,
+          "system.ammo.value": loadedMag.system.uses.value,
+        });
+
+        // The outgoing magazine always stays in inventory as an ordinary item,
+        // keeping its remaining rounds — even when empty, so it can be reloaded
+        // (topped off) later. Magazines are reusable objects, not spent brass.
+        let note = "";
+        if (oldMag) {
+          note = oldMag.system.uses.value > 0
+            ? ` Previous magazine (${oldMag.name}) set aside with ${oldMag.system.uses.value} round(s).`
+            : ` Empty magazine (${oldMag.name}) set aside to reload later.`;
+        }
+        if (item.system.ammo.longReload) {
+          note += " This weapon takes extra time to reload.";
+        }
+        ChatMessage.create({
+          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+          content: `<p>Reloaded ${item.name} with ${loadedMag.name} (${loadedMag.system.uses.value}/${loadedMag.system.uses.max}).${note}</p>`,
+        });
+        return;
+      }
+
+      // ── Legacy loose / bundle mode ─────────────────────────────────────
+      // Pours rounds from a chosen ammo-source item into the weapon's own
+      // ammo.value (SWN abstract loose ammo / clip bundles).
       let currentAmmo = item.system.ammo.value;
       let ammoNeeded = ammoMax - currentAmmo;
       if (ammoNeeded <= 0) {
@@ -563,72 +710,131 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
         return;
       }
 
-      let shift = event?.shiftKey || false;
-
-      // For specifying in chat msg where ammo comes from.
       let ammoReloadDesc = '';
       let extraMessage = "";
       if (item.system.ammo.longReload) {
         extraMessage = " This weapon takes extra time to reload.<br>";
       }
       let ammoToAdd = 0;
-      if (item.type == 'shipWeapon' || shift) {
-        ammoToAdd = ammoMax;
-      } else {
-        if (item.system.ammo.current == null || item.system.ammo.current == "") {
-          ui.notifications?.error("No ammo source currently set. Not reloading. Hold shift+click to bypass and reload.");
-          return;
-        }
-
-        let ammoItem = this.actor.items.get(item.system.ammo.current);
-        if (ammoItem == null) {
-          ui.notifications?.error("Selected ammo not found. Unsetting & select new ammo source. Not reloading. Hold shift+click to bypass and reload.");
-          await item.update({ "system.ammo.current" : "" });
-          return;
-        }
-        if (ammoItem.system.uses.consumable == 'bundle') {
-          if (ammoItem.system.quantity == 0 || ammoItem.system.uses.emptyQuantity == ammoItem.system.quantity) {
-            ui.notifications?.error(`All ${ammoItem.name} are empty. Hold shift+click to bypass and reload.`);
-            return;
-          }
-          //uses the whole clip with capacity set by the weapon
-          ammoToAdd = ammoMax;
-          ammoItem.system.removeOneUse();
-        }  else if (ammoItem.system.uses.consumable == "count") {
-          // take the value from the clip
-          if (ammoNeeded < ammoItem.system.uses.value) {
-            // Can partially reload
-            ammoToAdd = ammoNeeded;
-            await ammoItem.update({ "system.uses.value": ammoItem.system.uses.value - ammoToAdd});
-          } else {
-            // Uses up clip
-            ammoToAdd = ammoItem.system.uses.value;
-            ammoItem.system.removeOneUse();
-          }
-        } else {
-          ui.notifications.error("Item/Ammo consumable is not set to bundle or count");
-          return;
-        }
-        ammoReloadDesc = ` using ${ammoItem.name} from your inventory`;
-        if (ammoItem.system.location != "readied") {
-          extraMessage+=" Ammo source was not readied.";
-        }
+      if (item.system.ammo.current == null || item.system.ammo.current == "") {
+        ui.notifications?.error("No ammo source currently set. Not reloading. Hold shift+click to bypass and reload.");
+        return;
       }
+
+      let ammoItem = this.actor.items.get(item.system.ammo.current);
+      if (ammoItem == null) {
+        ui.notifications?.error("Selected ammo not found. Unsetting & select new ammo source. Not reloading. Hold shift+click to bypass and reload.");
+        await item.update({ "system.ammo.current" : "" });
+        return;
+      }
+      if (ammoItem.system.uses.consumable == 'bundle') {
+        if (ammoItem.system.quantity == 0 || ammoItem.system.uses.emptyQuantity == ammoItem.system.quantity) {
+          ui.notifications?.error(`All ${ammoItem.name} are empty. Hold shift+click to bypass and reload.`);
+          return;
+        }
+        //uses the whole clip with capacity set by the weapon
+        ammoToAdd = ammoMax;
+        await ammoItem.system.removeOneUse();
+      }  else if (ammoItem.system.uses.consumable == "count") {
+        // Take exactly the loose rounds needed (or whatever is left), spanning
+        // the boxes in the stack.
+        ammoToAdd = await ammoItem.system.drawRounds(ammoNeeded);
+        if (ammoToAdd <= 0) {
+          ui.notifications?.error(`${ammoItem.name} is empty. Hold shift+click to bypass and reload.`);
+          return;
+        }
+      } else {
+        ui.notifications.error("Item/Ammo consumable is not set to bundle or count");
+        return;
+      }
+      ammoReloadDesc = ` using ${ammoItem.name} from your inventory`;
+      if (ammoItem.system.location != "readied") {
+        extraMessage+=" Ammo source was not readied.";
+      }
+
       // Update the weapon with the ammo that was consumed.
       let newAmmoValue = currentAmmo + ammoToAdd;
       if (newAmmoValue > ammoMax) newAmmoValue = ammoMax;
-      
+
       await item.update({ "system.ammo.value": newAmmoValue });
-    
-      if (shift) {
-        // If shift is held, just reload the weapon without any checks.
-        extraMessage = " (Shift-clicked to bypass checks)";
-      }
 
       const content = `<p>Reloaded ${item.name}${ammoReloadDesc}.${extraMessage}</p>`;
       ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: this.actor }),
         content: content,
+      });
+    }
+
+  /**
+   * Top off a magazine from loose rounds (a `count` consumable of the same ammo
+   * type) in the actor's inventory. Works on loaded magazines too, since the
+   * weapon derives its rounds from the magazine.
+   *
+   * @this SWNActorSheet
+   * @param {PointerEvent} event   The originating click event
+   * @param {HTMLElement} target   The capturing HTML element which defined a [data-action]
+   * @protected
+   */
+    static async _onLoadMagazine(event, target) {
+      const mag = this._getEmbeddedDocument(target);
+      if (!mag || mag.type !== 'item' || mag.system.uses?.consumable !== 'magazine') return;
+      const { value, max, ammo } = mag.system.uses;
+      if (max <= 0) {
+        ui.notifications?.info(game.i18n.localize("swnr.weapon.magazineUnsized"));
+        return;
+      }
+      const needed = max - value;
+      if (needed <= 0) {
+        ui.notifications?.info(game.i18n.format("swnr.weapon.magazineFull", { name: mag.name }));
+        return;
+      }
+
+      const sources = this.actor.items.filter(
+        (i) => i.type === 'item'
+          && i.system.uses?.consumable === 'count'
+          && i.system.uses?.ammo === ammo
+          && i.system.uses.value > 0
+          && i.system.quantity > 0
+      );
+      if (sources.length === 0) {
+        ui.notifications?.error(game.i18n.format("swnr.weapon.noLooseRounds", { name: mag.name }));
+        return;
+      }
+
+      let source = sources[0];
+      if (sources.length > 1) {
+        const options = sources
+          .map((s) => `<option value="${s.id}">${foundry.utils.escapeHTML(s.name)} (${s.system.uses.value}/${s.system.uses.max}${s.system.quantity > 1 ? ` ×${s.system.quantity}` : ""})</option>`)
+          .join("");
+        const content = `<div class="form-group"><label>${game.i18n.localize("swnr.weapon.selectRounds")}</label>
+          <select name="src" style="flex:2;">${options}</select></div>`;
+        const srcId = await foundry.applications.api.DialogV2.wait({
+          window: { title: game.i18n.format("swnr.weapon.loadMagazineTitle", { name: mag.name }) },
+          content,
+          rejectClose: false,
+          buttons: [
+            {
+              action: "ok",
+              label: game.i18n.localize("swnr.weapon.loadMagazine"),
+              default: true,
+              callback: (_e, button) => button.form.elements.src.value,
+            },
+            { action: "cancel", label: game.i18n.localize("Cancel") },
+          ],
+        });
+        if (!srcId || srcId === "cancel") return;
+        source = sources.find((s) => s.id === srcId);
+        if (!source) return;
+      }
+
+      const drawn = await source.system.drawRounds(needed);
+      if (drawn <= 0) return;
+      const newValue = value + drawn;
+      await mag.update({ "system.uses.value": newValue });
+
+      ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        content: `<p>Loaded ${drawn} round(s) into ${mag.name} from ${source.name} (${newValue}/${max}).</p>`,
       });
     }
 

@@ -125,6 +125,11 @@
               <a class="item-control" data-action="removeUse"  data-item-id="{{item._id}}">
                 <i class="fas fa-minus"></i>
               </a>
+              {{#if (and (eq item.system.uses.consumable "magazine") (gt item.system.uses.max 0) (lt item.system.uses.value item.system.uses.max))}}
+                <a class="item-control" data-action="loadMagazine" title="{{localize 'swnr.weapon.loadMagazine'}}">
+                  <i class="fas fa-download"></i>
+                </a>
+              {{/if}}
           </div>
 
           <!-- Controls (edit/delete/reload) -->
