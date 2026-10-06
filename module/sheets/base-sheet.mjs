@@ -52,6 +52,69 @@ async function drawLooseRounds(actor, ammoType, needed, preferred = null) {
 const describeRounds = (used) => used.map((u) => `${u.n} from ${u.name}`).join(", ");
 
 /**
+ * Put `n` loose rounds of `ammoType` back into an actor's inventory: top off
+ * non-full boxes of that ammo type (the preferred box first), then create new
+ * boxes for the rest, copied from an existing box of the type when there is
+ * one (otherwise a generic "<ammo type> (loose)" item sized to the remainder).
+ * @param {Actor} actor
+ * @param {string} ammoType
+ * @param {number} n
+ * @param {string|null} preferredId
+ * @returns {Promise<{placed: {name: string, n: number, id: string}[]}>}
+ */
+async function returnLooseRounds(actor, ammoType, n, preferredId = null) {
+  const sameType = actor.items.filter((i) => i.type === 'item'
+    && i.system.uses?.consumable === 'count'
+    && i.system.uses?.ammo === ammoType
+    && i.system.quantity > 0);
+  const partial = sameType
+    .filter((i) => i.system.uses.value < i.system.uses.max)
+    .sort((a, b) => (b.id === preferredId) - (a.id === preferredId));
+  const placed = [];
+  let left = n;
+  for (const box of partial) {
+    if (left <= 0) break;
+    const put = Math.min(left, box.system.uses.max - box.system.uses.value);
+    await box.update({ "system.uses.value": box.system.uses.value + put });
+    placed.push({ name: box.name, n: put, id: box.id });
+    left -= put;
+  }
+  if (left > 0) {
+    const template = sameType.find((i) => i.id === preferredId) ?? sameType[0];
+    let data;
+    if (template) {
+      data = template.toObject();
+      delete data._id;
+      data.system.quantity = 1;
+      data.system.uses.emptyQuantity = 0;
+    } else {
+      const label = game.i18n.localize(CONFIG.SWN.ammoTypes[ammoType] ?? ammoType);
+      data = {
+        name: game.i18n.format("swnr.weapon.looseRoundsName", { type: label }),
+        type: "item",
+        img: "systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg",
+        system: {
+          encumbrance: 0, location: "stowed", quantity: 1,
+          uses: { consumable: "count", ammo: ammoType, value: left, max: left, keepEmpty: false, emptyQuantity: 0 },
+        },
+      };
+    }
+    const boxSize = Math.max(1, data.system.uses.max || left);
+    const toCreate = [];
+    for (let rest = left; rest > 0; rest -= boxSize) {
+      const box = foundry.utils.deepClone(data);
+      box.system.uses.value = Math.min(rest, boxSize);
+      toCreate.push(box);
+    }
+    const created = await actor.createEmbeddedDocuments("Item", toCreate);
+    for (const c of created) placed.push({ name: c.name, n: c.system.uses.value, id: c.id });
+  }
+  return { placed };
+}
+
+const POWER_AMMO = ["typeAPower", "typeBPower"];
+
+/**
  * Extend the basic ActorSheet with some very simple modifications
  * @extends {ActorSheetV2}
  */
@@ -900,6 +963,73 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
         speaker: ChatMessage.getSpeaker({ actor: this.actor }),
         content: `<p>Loaded ${drawn} round(s) into ${mag.name} (${describeRounds(used)}; ${newValue}/${max}).</p>`,
       });
+    }
+
+  /**
+   * Unload a weapon. A loaded magazine (or power cell) is taken out and stays
+   * in inventory with its remaining rounds. Loose rounds go back into boxes
+   * of the same ammo type. An energy weapon holding charge without a loaded
+   * cell gives that charge back as a power cell.
+   *
+   * @this SWNActorSheet
+   * @param {PointerEvent} event   The originating click event
+   * @param {HTMLElement} target   The capturing HTML element which defined a [data-action]
+   * @protected
+   */
+    static async _onUnload(event, target) {
+      const item = this._getEmbeddedDocument(target);
+      if (!item || item.type !== 'weapon') return;
+      const ammo = item.system.ammo;
+      if (!ammo || ammo.type === 'none' || ammo.type === 'infinite') return;
+      const speak = (text) => ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        content: `<p>${text}</p>`,
+      });
+
+      // Magazine mode: the magazine already holds its own rounds, so just take
+      // it out of the weapon.
+      if (ammo.loadedMagazine) {
+        const mag = item.system.loadedMagazineItem;
+        await item.update({ "system.ammo.loadedMagazine": "", "system.ammo.value": 0 });
+        if (mag) {
+          speak(`Unloaded ${item.name}: ${mag.name} (${mag.system.uses.value}/${mag.system.uses.max}) set aside.`);
+        }
+        return;
+      }
+
+      const rounds = ammo.value;
+      if (rounds <= 0) {
+        ui.notifications?.info(game.i18n.format("swnr.weapon.alreadyEmpty", { name: item.name }));
+        return;
+      }
+
+      // Energy weapon with charge but no loaded cell: there are no loose power
+      // "rounds", so the charge comes out as a cell sized to the weapon.
+      if (POWER_AMMO.includes(ammo.type)) {
+        const like = this.actor.items.find((i) => i.type === 'item'
+          && i.system.uses?.consumable === 'magazine' && i.system.uses?.ammo === ammo.type);
+        const [cell] = await this.actor.createEmbeddedDocuments("Item", [{
+          name: like?.name ?? game.i18n.localize(CONFIG.SWN.ammoTypes[ammo.type]),
+          type: "item",
+          img: like?.img ?? "systems/swnr/assets/icons/game-icons.net/item-icons/battery-75.svg",
+          system: {
+            encumbrance: like?.system.encumbrance ?? 1, location: "stowed", quantity: 1,
+            uses: { consumable: "magazine", ammo: ammo.type, value: rounds, max: ammo.max, keepEmpty: true, emptyQuantity: 0 },
+          },
+        }]);
+        await item.update({ "system.ammo.value": 0 });
+        speak(`Unloaded ${item.name}: ${cell.name} (${rounds}/${ammo.max}) set aside.`);
+        return;
+      }
+
+      // Loose rounds go back into boxes of the same ammo type.
+      const { placed } = await returnLooseRounds(this.actor, ammo.type, rounds, ammo.current);
+      const update = { "system.ammo.value": 0 };
+      // Keep "Ammo Used" pointing at a real box (its box may have been removed
+      // when it was emptied).
+      if (placed.length && !this.actor.items.has(ammo.current)) update["system.ammo.current"] = placed[0].id;
+      await item.update(update);
+      speak(`Unloaded ${rounds} round(s) from ${item.name} (${placed.map((p) => `${p.n} into ${p.name}`).join(", ")}).`);
     }
 
     static async _onCreditChange(event, target) {

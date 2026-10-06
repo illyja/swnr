@@ -50,6 +50,11 @@
           <a class="item-control item-reload" data-action="reload" title="{{localize 'swnr.sheet.reload-item'}}">
             <i class="fas fa-retweet"></i>
           </a>
+          {{#if (and (ne item.system.ammo.type "infinite") (or item.system.ammo.loadedMagazine (gt item.system.ammo.value 0)))}}
+            <a class="item-control item-unload" data-action="unload" title="{{localize 'swnr.weapon.unload'}}">
+              <i class="fas fa-eject"></i>
+            </a>
+          {{/if}}
         {{/if}}
         <a class="item-control item-edit" title="{{localize 'DOCUMENT.Update' type='Item'}}" data-action="viewDoc">
           <i class="fas fa-edit"></i>
