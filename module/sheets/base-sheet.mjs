@@ -3,9 +3,30 @@ import { ContainerHelper } from '../helpers/container-helper.mjs';
 import { getChatMessageMode } from '../helpers/utils.mjs';
 
 /**
- * Draw up to `needed` loose rounds of `ammoType` from an actor's `count`
- * consumables: the preferred item first, then the rest — readied items first,
- * and partially used boxes before full ones so fewer half-empty boxes remain.
+ * An actor's non-empty loose rounds (`count` consumables) of `ammoType`, in
+ * draw order: readied items first, then partially used boxes before full ones
+ * so fewer half-empty boxes remain.
+ * @param {Actor} actor
+ * @param {string} ammoType
+ * @param {string|null} excludeId
+ * @returns {Item[]}
+ */
+function looseRoundsFor(actor, ammoType, excludeId = null) {
+  return actor.items
+    .filter((i) => i.type === 'item'
+      && i.system.uses?.consumable === 'count'
+      && i.system.uses?.ammo === ammoType
+      && i.id !== excludeId
+      && i.system.uses.value > 0
+      && i.system.quantity > 0)
+    .sort((a, b) =>
+      ((b.system.location === 'readied') - (a.system.location === 'readied'))
+      || (a.system.uses.value - b.system.uses.value));
+}
+
+/**
+ * Draw up to `needed` loose rounds of `ammoType` from an actor's inventory:
+ * the preferred item first, then the rest in looseRoundsFor() order.
  * @param {Actor} actor
  * @param {string} ammoType
  * @param {number} needed
@@ -13,16 +34,7 @@ import { getChatMessageMode } from '../helpers/utils.mjs';
  * @returns {Promise<{drawn: number, used: {name: string, n: number}[]}>}
  */
 async function drawLooseRounds(actor, ammoType, needed, preferred = null) {
-  const others = actor.items
-    .filter((i) => i.type === 'item'
-      && i.system.uses?.consumable === 'count'
-      && i.system.uses?.ammo === ammoType
-      && i.id !== preferred?.id
-      && i.system.uses.value > 0
-      && i.system.quantity > 0)
-    .sort((a, b) =>
-      ((b.system.location === 'readied') - (a.system.location === 'readied'))
-      || (a.system.uses.value - b.system.uses.value));
+  const others = looseRoundsFor(actor, ammoType, preferred?.id ?? null);
   const order = preferred ? [preferred, ...others] : others;
   let drawn = 0;
   const used = [];
@@ -760,9 +772,15 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
 
       let ammoItem = this.actor.items.get(item.system.ammo.current);
       if (ammoItem == null) {
-        ui.notifications?.error("Selected ammo not found. Unsetting & select new ammo source. Not reloading. Hold shift+click to bypass and reload.");
-        await item.update({ "system.ammo.current" : "" });
-        return;
+        // The selected source is gone (e.g. an emptied box of loose rounds was
+        // removed): switch to another box of the same ammo type, if any.
+        const replacement = looseRoundsFor(this.actor, ammoType)[0];
+        if (!replacement) {
+          ui.notifications?.error(`No loose rounds left for ${item.name}. Hold shift+click to bypass and reload.`);
+          return;
+        }
+        await item.update({ "system.ammo.current": replacement.id });
+        ammoItem = replacement;
       }
       if (ammoItem.system.uses.consumable == 'bundle') {
         if (ammoItem.system.quantity == 0 || ammoItem.system.uses.emptyQuantity == ammoItem.system.quantity) {
@@ -783,6 +801,12 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
           return;
         }
         ammoReloadDesc = ` with ${describeRounds(used)}`;
+        // If the selected box was emptied and removed, point the weapon at the
+        // next box of the same ammo type so the "Ammo Used" field stays useful.
+        if (!this.actor.items.has(ammoItem.id)) {
+          const next = looseRoundsFor(this.actor, ammoType)[0];
+          if (next) await item.update({ "system.ammo.current": next.id });
+        }
       } else {
         ui.notifications.error("Item/Ammo consumable is not set to bundle or count");
         return;

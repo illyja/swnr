@@ -62,6 +62,15 @@ export default class SWNItemItem extends SWNBaseGearItem {
     return this.uses?.consumable === "magazine";
   }
 
+  /**
+   * True for loose ammunition: a `count` consumable tagged with an ammo type.
+   * Unlike magazines, an emptied box of loose rounds is not kept.
+   * @returns {boolean}
+   */
+  get isLooseAmmo() {
+    return this.uses?.consumable === "count" && !!this.uses?.ammo && this.uses.ammo !== "none";
+  }
+
   prepareDerivedData() {
     // Build the formula dynamically using string interpolation
     const roll = this.roll;
@@ -98,17 +107,23 @@ export default class SWNItemItem extends SWNBaseGearItem {
         break;
       }
       // Emptying the current box: drop to its last round, then let
-      // removeOneUse() move on to the next box in the stack (or empty it).
+      // removeOneUse() move on to the next box in the stack (or remove it).
       if (avail > 1) await item.update({ "system.uses.value": 1 });
       await item.system.removeOneUse();
       drawn += take;
+      // The last empty box of loose rounds is deleted; stop drawing from it.
+      if (item.actor && !item.actor.items.has(item.id)) break;
     }
     return drawn;
   }
 
   async addOneUse() {
     let item = this.parent;
-    //const actor = item.actor;
+    // Magazines are reusable: just add a round, up to capacity.
+    if (this.isMagazine) {
+      if (this.uses.value < this.uses.max) await item.update({ "system.uses.value": this.uses.value + 1 });
+      return;
+    }
     if (item.type === "item" && this.uses.consumable !== "none") {
       const uses = this.uses;
       if (uses.value == 0 && this.uses.keepEmpty && this.uses.emptyQuantity > 0) {
@@ -134,7 +149,12 @@ export default class SWNItemItem extends SWNBaseGearItem {
 
   async removeOneUse() {
     let item = this.parent;
-    //const actor = item.actor;
+    // Magazines are reusable: just remove a round. An empty magazine is always
+    // kept in inventory, regardless of keepEmpty, so it can be refilled.
+    if (this.isMagazine) {
+      if (this.uses.value > 0) await item.update({ "system.uses.value": this.uses.value - 1 });
+      return;
+    }
     if (item.type === "item" && this.uses.consumable !== "none") {
       const uses = this.uses;
       if (uses.value > 1) {
@@ -161,6 +181,10 @@ export default class SWNItemItem extends SWNBaseGearItem {
           if (this.quantity > 1) {
             // If quantity is greater than 1, just reduce the quantity
             await item.update({ "system.quantity": this.quantity - 1, "system.uses.value": newUses });
+          } else if (this.isLooseAmmo && item.actor) {
+            // An emptied box of loose rounds is discarded rather than kept.
+            ui.notifications?.info(game.i18n.format("swnr.weapon.emptyAmmoRemoved", { name: item.name }));
+            await item.delete();
           } else {
             ui.notifications?.info(
               `Setting item ${item.name} to quantity 0. Delete if no longer needed.`
