@@ -1,41 +1,27 @@
-<form class="">
-  <div>
-    {{! dice }}
-    <label for="">{{localize 'swnr.chat.dicepool'}}: </label>
-    <select
-      name="dicepool"
-      {{#if (eq skill.pool 'ask')}}
-        class=""
-      {{else}}
-        class=""
-      {{/if}}
-    >
-      {{selectOptions pool selected="2d6" localize=true}}
+<form class="swnr-roll-dialog">
+  <div class="form-group">
+    <label for="dicepool">{{localize 'swnr.chat.dicepool'}}</label>
+    <select name="dicepool" id="dicepool">
+      {{selectOptions pool selected=selectedPool localize=true}}
     </select>
   </div>
-  <div>
-    {{! mod }}
-    <label for="modifier">{{localize 'swnr.chat.modifier'}}: </label>
-    <input name="modifier" type="number" step="1" value="{{ modifier }}" class=""/>
-  </div>
-  <div>
-    {{! stat}}
-    <label for="stat">{{localize 'swnr.sheet.stats'}}: </label>
-    <select
-      name="stat"
-      {{#if (eq skill.system.defaultStat 'ask')}}
-        class=""
-      {{else}}
-        class=""
-      {{/if}}
-    >
-      {{selectOptions (getStatChoices stats) selected=skill.system.defaultStat}}
+
+  <div class="form-group">
+    <label for="stat">{{localize 'swnr.sheet.stats'}}</label>
+    <select name="stat" id="stat">
+      {{selectOptions (getStatChoices stats) selected=selectedStat}}
     </select>
   </div>
-  <div class="flex flexrow">
-    <div class="flex flexrow">
-      <label for="remember">{{localize 'swnr.weapon.remember'}}: </label>
-      <input type="checkbox" name="remember" id="remember">
-    </div>
-  </div> 
+
+  <div class="form-group">
+    <label for="modifier">{{localize 'swnr.chat.modifier'}}</label>
+    <input name="modifier" id="modifier" type="number" step="1" value="{{modifier}}">
+  </div>
+
+  {{#if allowRemember}}
+  <div class="form-group">
+    <label for="remember">{{localize 'swnr.weapon.remember'}}</label>
+    <input type="checkbox" name="remember" id="remember" {{checked rememberChecked}}>
+  </div>
+  {{/if}}
 </form>

@@ -40,6 +40,9 @@
           <div class='resource grid-span-3 thin-bar' style="text-align:right;">
             {{! remember}}
             {{formGroup systemFields.remember.fields.use value=system.remember.use localize=true}}
+            {{#if system.remember.use}}
+            <span class="remembered-summary">{{system.rememberSummary}}</span>
+            {{/if}}
           </div>
         </div>
       </div>
