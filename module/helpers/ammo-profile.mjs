@@ -90,6 +90,38 @@ export function caliberFits(boxCaliber, receiverCaliber) {
   return !boxCaliber || boxCaliber === receiverCaliber;
 }
 
+/** Calibers on an item: rounds/magazines keep it in uses, weapons in ammo. */
+function itemCaliber(data) {
+  return data?.system?.uses?.caliber || data?.system?.ammo?.caliber || null;
+}
+
+let packCalibers = null;
+
+/**
+ * Every caliber currently in use, for the caliber field's autocomplete:
+ * world items, items carried by actors, and Item compendiums. Caliber is free
+ * text, so typing a new one is always allowed; this only suggests the
+ * spellings already in play. Compendium indexes are read once per session.
+ * @returns {Promise<string[]>} sorted, unique
+ */
+export async function knownCalibers() {
+  if (!packCalibers) {
+    packCalibers = new Set();
+    for (const pack of game.packs.filter((p) => p.documentName === "Item")) {
+      const index = await pack.getIndex({ fields: ["system.uses.caliber", "system.ammo.caliber"] });
+      for (const entry of index) {
+        const c = itemCaliber(entry);
+        if (c) packCalibers.add(c);
+      }
+    }
+  }
+  const found = new Set(packCalibers);
+  const add = (item) => { const c = itemCaliber(item); if (c) found.add(c); };
+  game.items.forEach(add);
+  game.actors.forEach((a) => a.items.forEach(add));
+  return [...found].sort((a, b) => a.localeCompare(b));
+}
+
 /**
  * True when a target counts as wearing advanced armor: a readied, equipped
  * armor item flagged isAdvanced, or an NPC whose armor type is combat/powered.

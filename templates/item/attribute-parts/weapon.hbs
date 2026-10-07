@@ -109,8 +109,9 @@
         </div>
         <div class="resource grid-span-2">
           <label class="resource-label">{{localize 'swnr.weapon.caliber'}}</label>
-          <input type="text" name="system.ammo.caliber" value="{{system.ammo.caliber}}"
+          <input type="text" name="system.ammo.caliber" value="{{system.ammo.caliber}}" list="{{item.uuid}}-calibers" autocomplete="off"
             placeholder="{{localize 'swnr.weapon.caliberHint'}}" />
+        <datalist id="{{item.uuid}}-calibers">{{#each calibers}}<option value="{{this}}"></option>{{/each}}</datalist>
         </div>
       </div>
       {{/if}}

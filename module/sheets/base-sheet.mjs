@@ -781,12 +781,16 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
       const weaponMagClass = item.system.ammo.magClass;
       const magClassFits = (m) =>
         !weaponMagClass || !m.system.uses?.magClass || m.system.uses.magClass === weaponMagClass;
+      // Same caliber rule as loose rounds: a magazine with a caliber only fits
+      // a weapon of that caliber; an uncalibered magazine fits any weapon.
+      const weaponCaliber = item.system.ammo.caliber ?? null;
       const spareMags = this.actor.items.filter(
         (i) => i.type === 'item'
           && i.system.uses?.consumable === 'magazine'
           && i.system.uses?.ammo === ammoType
           && i.id !== loadedMagId
           && magClassFits(i)
+          && caliberFits(i.system.uses?.caliber, weaponCaliber)
       );
       if (spareMags.length > 0 || loadedMagExists) {
         // Loadable = generic (uses.max 0, sizes to the weapon on load) or a
@@ -907,7 +911,6 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
         return;
       }
 
-      const weaponCaliber = item.system.ammo.caliber ?? null;
       let ammoItem = this.actor.items.get(item.system.ammo.current);
       if (ammoItem && !caliberFits(ammoItem.system.uses?.caliber, weaponCaliber)) {
         ui.notifications?.error(game.i18n.format("swnr.ammoProfile.wrongCaliber", { ammo: ammoItem.name, name: item.name }));

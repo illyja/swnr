@@ -2198,7 +2198,7 @@
       "magClass": "Magazine Class",
       "magClassHint": "e.g. combat-rifle (blank fits any)",
       "caliber": "Caliber",
-      "caliberHint": "e.g. shotgun (rounds of a caliber only load into the same caliber)",
+      "caliberHint": "e.g. shotgun (blank = fits any caliber)",
       "noLoadedMagazine": "No compatible loaded magazine available for this weapon. Load rounds into a matching magazine, or shift+click to bypass.",
       "burst": "Use Burst Fire",
       "skillAddDamage": "Skill adds to damage",
@@ -2230,7 +2230,7 @@
     },
     "ammoProfile": {
       "legend": "Ammo Profile",
-      "hint": "How these rounds change the weapon firing them. Leave a field blank to use the weapon's own value.",
+      "hint": "Leave everything blank for generic rounds. For specialty rounds (slugs, sabot, bean bags...) fill in only what they change; blank fields keep the weapon's own value.",
       "loadedHint": "The variant currently loaded in this magazine. Loading rounds from a box replaces it.",
       "label": "Name",
       "labelHint": "blank = item name",

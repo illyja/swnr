@@ -1,7 +1,7 @@
 import { prepareActiveEffectCategories } from '../helpers/effects.mjs';
 import { getGameSettings } from '../helpers/register-settings.mjs';
 import { checkboxFieldWidget, groupFieldWidget } from '../helpers/handlebar.mjs';
-import { caliberFits } from '../helpers/ammo-profile.mjs';
+import { caliberFits, knownCalibers } from '../helpers/ammo-profile.mjs';
 
 
 const { api, sheets } = foundry.applications;
@@ -247,6 +247,8 @@ export class SWNItemSheet extends api.HandlebarsApplicationMixin(
       groupWidget: groupFieldWidget.bind(this),
       checkWidget: checkboxFieldWidget.bind(this),
       related: this._getRelatedItems(),
+      // Autocomplete for the free-text caliber field (weapons, rounds, magazines).
+      calibers: ['item', 'weapon'].includes(this.item.type) ? await knownCalibers() : [],
     };
     return context;
   }
