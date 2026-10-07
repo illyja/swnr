@@ -1,12 +1,20 @@
+// Helpers for the field *types* the schemas are built from -- a nullable number, a
+// value/max resource, a dice string. Add one when several schemas need the same
+// shape of field with different meanings.
+//
+// A specific attribute is not a type: define it inline in the schema that owns it,
+// even when two schemas happen to declare the same thing. Hiding an attribute
+// behind a helper here puts its shape a file away from every schema that uses it,
+// and the helper name goes stale the moment one caller's needs diverge.
 export default class SWNShared {
 
   // helper function to generate a SchemaField with resources (value, max)
-  static resourceField(initialValue, initialMax, derivedValue = false) {
+  static resourceField(initialValue, initialMax, derivedValue = false, integer = true) {
     const fields = foundry.data.fields;
     return new fields.SchemaField({
       // Make sure to call new so you invoke the constructor!
-      value: new fields.NumberField({ required: true, nullable: false, integer: true, min: -20, initial: initialValue }),
-      max: new fields.NumberField({ required: true, nullable: false, integer: true, initial: initialMax }),
+      value: new fields.NumberField({ required: true, nullable: false, integer: integer, min: -20, initial: initialValue }),
+      max: new fields.NumberField({ required: true, nullable: false, integer: integer, initial: initialMax }),
     });
   }
   
@@ -54,10 +62,23 @@ export default class SWNShared {
     return new fields.StringField({ required: true, nullable: false, initial: initialValue });
   }
 
-  static diceString(initialValue, required = true) {
+  // Leave blank permitted where "" is a meaningful "none". Pass blank = false for a
+  // value that is substituted straight into a roll formula: "" there yields an
+  // unparseable formula, so a cleared field is reset to initialValue on save instead.
+  static diceString(initialValue, required = true, blank = true) {
     const fields = foundry.data.fields;
-    return new fields.StringField({ required: required, nullable: !required, initial: initialValue, 
-      validate: v => v === null || (() => { new Roll(v); return true; })()
+    return new fields.StringField({
+      required: required, nullable: !required, blank: blank, initial: initialValue,
+      // Roll.validate parses and evaluates, and neutralises @references first, so a
+      // formula like "@str" passes. Throwing puts the offending string in the error
+      // the user sees; returning false would only say "Invalid value".
+      // "" and "none" are the two ways the data says "no die here" -- trauma.die
+      // carries both, and the shipped CWN actors spell it "None".
+      validate: v => {
+        if ( (v === null) || (v === "") || (v.toLowerCase() === "none") ) { return true; }
+        if ( !Roll.validate(v) ) { throw new Error(`"${v}" is not a valid dice formula`); }
+        return true;
+      }
     });
   }
 
