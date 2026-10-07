@@ -102,17 +102,40 @@ export default class SWNWeapon extends SWNBaseGearItem {
     return mag;
   }
 
+  /**
+   * True when this weapon only holds charge through a loaded power cell: an
+   * energy weapon (Type A/B cell ammo) carried by a character or NPC.
+   * Vehicle-mounted weapons keep abstract charge.
+   * @returns {boolean}
+   */
+  get requiresCell() {
+    const actorType = this.parent?.actor?.type;
+    return CONFIG.SWN.powerCellAmmoTypes.includes(this.ammo?.type)
+      && (actorType === "character" || actorType === "npc");
+  }
+
   prepareDerivedData() {
     super.prepareDerivedData();
     // In magazine mode the loaded magazine item owns the loaded-round count and
     // capacity. Mirror them onto ammo.value/ammo.max so every existing getter,
     // template, and chat card keeps reading ammo.value unchanged. In loose /
-    // abstract mode (no loaded magazine) ammo.value stays authoritative.
+    // abstract mode (no loaded magazine) ammo.value stays authoritative —
+    // except for energy weapons, which have no charge without a loaded cell.
     const mag = this.loadedMagazineItem;
     if (mag) {
       this.ammo.value = mag.system.uses.value;
       this.ammo.max = mag.system.uses.max;
+    } else if (this.requiresCell) {
+      this.ammo.value = 0;
     }
+  }
+
+  /** Notification text for a weapon that can't fire for lack of ammo. */
+  get outOfAmmoMessage() {
+    const name = this.parent?.name ?? "";
+    return this.requiresCell && !this.loadedMagazineItem
+      ? game.i18n.format("swnr.weapon.needsCell", { name })
+      : `Your ${name} is out of ammo!`;
   }
 
   /**
@@ -174,7 +197,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
       throw new Error(message);
     }
     if (!this.hasAmmo) {
-      ui.notifications?.error(`Your ${item.name} is out of ammo!`);
+      ui.notifications?.error(this.outOfAmmoMessage);
       return;
     }
     if (
@@ -456,7 +479,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
       return;
     }
     if (!this.hasAmmo) {
-      ui.notifications?.error(`Your ${item.name} is out of ammo!`);
+      ui.notifications?.error(this.outOfAmmoMessage);
       return;
     }
 
@@ -548,7 +571,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
       return;
     }
     if (!this.hasAmmo) {
-      ui.notifications?.error(`Your ${item.name} is out of ammo!`);
+      ui.notifications?.error(this.outOfAmmoMessage);
       return;
     }
 

@@ -112,7 +112,30 @@ async function returnLooseRounds(actor, ammoType, n, preferredId = null) {
   return { placed };
 }
 
-const POWER_AMMO = ["typeAPower", "typeBPower"];
+/**
+ * Create a new power cell item on an actor, styled after an existing cell of
+ * the same type when there is one.
+ * @param {Actor} actor
+ * @param {string} ammoType  typeAPower / typeBPower
+ * @param {number} value     charge
+ * @param {number} max       capacity (the weapon's shots per cell)
+ * @returns {Promise<Item>}
+ */
+async function createCell(actor, ammoType, value, max) {
+  const like = actor.items.find((i) => i.type === 'item'
+    && i.system.uses?.consumable === 'magazine' && i.system.uses?.ammo === ammoType);
+  const [cell] = await actor.createEmbeddedDocuments("Item", [{
+    name: like?.name ?? game.i18n.localize(CONFIG.SWN.ammoTypes[ammoType]),
+    type: "item",
+    img: like?.img ?? "systems/swnr/assets/icons/game-icons.net/item-icons/battery-75.svg",
+    system: {
+      encumbrance: like?.system.encumbrance ?? 1, cost: like?.system.cost ?? 0,
+      location: "stowed", quantity: 1,
+      uses: { consumable: "magazine", ammo: ammoType, value, max, keepEmpty: true, emptyQuantity: 0 },
+    },
+  }]);
+  return cell;
+}
 
 /**
  * Extend the basic ActorSheet with some very simple modifications
@@ -676,14 +699,25 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
       // ship weapons). In magazine mode this tops off the loaded magazine.
       const instantFill = async (bypassNote) => {
         const loadedMag = loadedMagId ? this.actor.items.get(loadedMagId) : null;
+        let withDesc = "";
         if (loadedMag) {
           await loadedMag.update({ "system.uses.value": loadedMag.system.uses.max });
+        } else if (item.system.requiresCell) {
+          // Energy weapons only hold charge through a cell: conjure a full one
+          // and load it.
+          const cell = await createCell(this.actor, ammoType, ammoMax, ammoMax);
+          await item.update({
+            "system.ammo.loadedMagazine": cell.id,
+            "system.ammo.max": ammoMax,
+            "system.ammo.value": ammoMax,
+          });
+          withDesc = ` with a new ${cell.name}`;
         } else {
           await item.update({ "system.ammo.value": ammoMax });
         }
         ChatMessage.create({
           speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          content: `<p>Reloaded ${item.name}.${bypassNote}</p>`,
+          content: `<p>Reloaded ${item.name}${withDesc}.${bypassNote}</p>`,
         });
       };
 
@@ -809,6 +843,12 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
           speaker: ChatMessage.getSpeaker({ actor: this.actor }),
           content: `<p>Reloaded ${item.name} with ${loadedMag.name} (${loadedMag.system.uses.value}/${loadedMag.system.uses.max}).${note}</p>`,
         });
+        return;
+      }
+
+      // Energy weapons only take charge from a cell; there is no loose fallback.
+      if (item.system.requiresCell) {
+        ui.notifications?.error(game.i18n.format("swnr.weapon.noCellAvailable", { name: item.name }));
         return;
       }
 
@@ -968,8 +1008,8 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
   /**
    * Unload a weapon. A loaded magazine (or power cell) is taken out and stays
    * in inventory with its remaining rounds. Loose rounds go back into boxes
-   * of the same ammo type. An energy weapon holding charge without a loaded
-   * cell gives that charge back as a power cell.
+   * of the same ammo type. (Energy weapons on characters/NPCs only ever hold
+   * charge through a cell, so they always take the magazine path.)
    *
    * @this SWNActorSheet
    * @param {PointerEvent} event   The originating click event
@@ -1000,25 +1040,6 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
       const rounds = ammo.value;
       if (rounds <= 0) {
         ui.notifications?.info(game.i18n.format("swnr.weapon.alreadyEmpty", { name: item.name }));
-        return;
-      }
-
-      // Energy weapon with charge but no loaded cell: there are no loose power
-      // "rounds", so the charge comes out as a cell sized to the weapon.
-      if (POWER_AMMO.includes(ammo.type)) {
-        const like = this.actor.items.find((i) => i.type === 'item'
-          && i.system.uses?.consumable === 'magazine' && i.system.uses?.ammo === ammo.type);
-        const [cell] = await this.actor.createEmbeddedDocuments("Item", [{
-          name: like?.name ?? game.i18n.localize(CONFIG.SWN.ammoTypes[ammo.type]),
-          type: "item",
-          img: like?.img ?? "systems/swnr/assets/icons/game-icons.net/item-icons/battery-75.svg",
-          system: {
-            encumbrance: like?.system.encumbrance ?? 1, location: "stowed", quantity: 1,
-            uses: { consumable: "magazine", ammo: ammo.type, value: rounds, max: ammo.max, keepEmpty: true, emptyQuantity: 0 },
-          },
-        }]);
-        await item.update({ "system.ammo.value": 0 });
-        speak(`Unloaded ${item.name}: ${cell.name} (${rounds}/${ammo.max}) set aside.`);
         return;
       }
 

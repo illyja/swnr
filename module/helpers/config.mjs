@@ -63,6 +63,10 @@ SWN.fuelTypes = {
   typeBPower: 'swnr.ammo.typeBPower',
 };
 
+// Ammo types that are power cells: on characters and NPCs, a weapon using one
+// only holds charge through a loaded cell (see SWNWeapon.prepareDerivedData).
+SWN.powerCellAmmoTypes = ["typeAPower", "typeBPower"];
+
 SWN.ammoTypes = {
   none: 'swnr.ammo.none',
   typeAPower: 'swnr.ammo.typeAPower',

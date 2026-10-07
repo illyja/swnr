@@ -2167,6 +2167,8 @@
       "emptyAmmoRemoved": "{name} is empty and was removed.",
       "unload": "Unload weapon",
       "alreadyEmpty": "{name} is already empty.",
+      "needsCell": "{name} has no power cell loaded. Reload it with a cell.",
+      "noCellAvailable": "No charged power cell available for {name}. Shift+click to load a new one.",
       "looseRoundsName": "{type} (loose)",
       "magClass": "Magazine Class",
       "magClassHint": "e.g. combat-rifle (blank fits any)",
