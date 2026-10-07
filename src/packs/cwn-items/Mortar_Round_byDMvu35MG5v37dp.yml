@@ -1,0 +1,58 @@
+name: Mortar Round
+type: item
+img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
+folder: HG41JQWj742oQIK1
+flags: {}
+_stats:
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+  coreVersion: '13.346'
+  systemId: swnr
+  systemVersion: 2.3.2
+  createdTime: 1791331200000
+  modifiedTime: 1791331200000
+  lastModifiedBy: lKC5x4Yf023Bizof
+system:
+  cost: 50
+  description: >-
+    A single mortar round. Mortar rounds act as frag grenades on the target point, doing the mortar's damage in a 10-meter radius. Each counts as one item of encumbrance.
+  favorite: false
+  quantity: 1
+  uses:
+    max: 1
+    value: 1
+    ammo: ammo
+    consumable: count
+    caliber: mortar
+    keepEmpty: false
+    emptyQuantity: 0
+  ammoProfile:
+    label: ''
+    damage: ''
+    hitMod: 0
+    rangeNormal: null
+    rangeMax: null
+    traumaDie: ''
+    traumaRating: null
+    nonLethal: false
+    stoppedByAdvancedArmor: false
+  bundle:
+    bundled: false
+  encumbrance: 1
+  noEncReadied: false
+  tl: null
+  location: stowed
+  quality: stock
+  container:
+    isContainer: false
+    isOpen: true
+    capacity:
+      max: 0
+      value: 0
+effects: []
+ownership:
+  default: 0
+_id: byDMvu35MG5v37dp
+sort: 100010
+_key: '!items!byDMvu35MG5v37dp'

@@ -20,8 +20,7 @@ system:
     longReload: false
     max: 0
     suppress: false
-    type: ammo
-    caliber: demo-charge
+    type: disposable
     value: 0
     current: null
   cost: 250

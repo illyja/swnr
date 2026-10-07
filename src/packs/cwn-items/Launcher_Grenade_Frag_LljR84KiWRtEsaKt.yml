@@ -1,0 +1,58 @@
+name: Launcher Grenade, Frag
+type: item
+img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
+folder: HG41JQWj742oQIK1
+flags: {}
+_stats:
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+  coreVersion: '13.346'
+  systemId: swnr
+  systemVersion: 2.3.2
+  createdTime: 1791331200000
+  modifiedTime: 1791331200000
+  lastModifiedBy: lKC5x4Yf023Bizof
+system:
+  cost: 100
+  description: >-
+    A grenade built to be fired from a grenade launcher; it cannot be thrown by hand. It costs and functions the same as its regular equivalent. Frag: 2d6 damage with the chance of a Traumatic Hit; an Evasion save halves it.
+  favorite: false
+  quantity: 1
+  uses:
+    max: 1
+    value: 1
+    ammo: ammo
+    consumable: count
+    caliber: launcher-grenade
+    keepEmpty: false
+    emptyQuantity: 0
+  ammoProfile:
+    label: Frag
+    damage: 2d6
+    hitMod: 0
+    rangeNormal: null
+    rangeMax: null
+    traumaDie: 1d8
+    traumaRating: 2
+    nonLethal: false
+    stoppedByAdvancedArmor: false
+  bundle:
+    bundled: false
+  encumbrance: 1
+  noEncReadied: false
+  tl: null
+  location: stowed
+  quality: stock
+  container:
+    isContainer: false
+    isOpen: true
+    capacity:
+      max: 0
+      value: 0
+effects: []
+ownership:
+  default: 0
+_id: LljR84KiWRtEsaKt
+sort: 100011
+_key: '!items!LljR84KiWRtEsaKt'
