@@ -1,5 +1,6 @@
 import SWNBaseGearItem from './base-gear-item.mjs';
 import SWNShared from '../shared.mjs';
+import { defineAmmoProfileSchema } from '../../helpers/ammo-profile.mjs';
 
 export default class SWNItemItem extends SWNBaseGearItem {
   static LOCALIZATION_PREFIXES = [
@@ -42,12 +43,18 @@ export default class SWNItemItem extends SWNBaseGearItem {
       // Magazine compatibility key (see weapon ammo.magClass). Blank = a
       // universal magazine that fits any weapon of the matching ammo type.
       magClass: SWNShared.nullableString(),
+      // Ammo family, e.g. "shotgun". Rounds with a caliber only load into a
+      // weapon or magazine of that caliber; blank rounds fit anything.
+      caliber: SWNShared.nullableString(),
       keepEmpty: new fields.BooleanField({
         initial: true,
         required: true,
         nullable: false,
       }),
     });
+    // Stat changes this ammunition gives the weapon it's fired from. On a
+    // magazine it records the variant currently loaded (copied on load).
+    schema.ammoProfile = defineAmmoProfileSchema();
     return schema;
   }
 

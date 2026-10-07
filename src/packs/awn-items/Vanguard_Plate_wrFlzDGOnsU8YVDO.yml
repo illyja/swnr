@@ -4,6 +4,7 @@ type: armor
 _id: wrFlzDGOnsU8YVDO
 img: systems/swnr/assets/icons/game-icons.net/item-icons/armor-white.svg
 system:
+  isAdvanced: true
   description: >-
     <h3
     style="box-sizing:border-box;user-select:text;scrollbar-width:thin;scrollbar-color:var(--color-scrollbar)

@@ -12,6 +12,7 @@
  */
 
 import { applyHealthDropToToken } from "./chat.mjs";
+import { hasAdvancedArmor } from "./ammo-profile.mjs";
 
 const POWER_CARD_TEMPLATE = "systems/swnr/templates/chat/power-usage.hbs";
 const WEAPON_CARD_TEMPLATE = "systems/swnr/templates/chat/attack-roll.hbs";
@@ -156,19 +157,26 @@ function weaponTargetAC(actor, isMelee) {
  * Resolve the raw amount and hit outcome for one target from an attack context.
  * A hit deals main damage (or the traumatic-hit damage when trauma triggered);
  * a non-hit that still meets the weapon's shock AC deals shock damage; otherwise
- * it's a clean miss.
- * @returns {{hitLabel: "hit"|"shock"|"miss", base: number}}
+ * it's a clean miss. Ammo that advanced armor stops leaves an armored target
+ * "immune" on anything but a miss.
+ * @returns {{hitLabel: "hit"|"shock"|"miss"|"immune", base: number, nonLethal: boolean}}
  */
 function computeWeaponOutcome(ctx, actor) {
   const targetAC = weaponTargetAC(actor, ctx.isMelee);
+  let outcome;
   if (ctx.attackTotal >= targetAC) {
-    const base = ctx.traumaTriggered && ctx.traumaDamage != null ? ctx.traumaDamage : ctx.mainDamage;
-    return { hitLabel: "hit", base };
+    const trauma = ctx.traumaTriggered && ctx.traumaDamage != null;
+    // A traumatic hit makes non-lethal ammo lethal.
+    outcome = { hitLabel: "hit", base: trauma ? ctx.traumaDamage : ctx.mainDamage, nonLethal: !!ctx.nonLethal && !trauma };
+  } else if (ctx.shockDamage != null && ctx.shockAC != null && ctx.attackTotal >= ctx.shockAC) {
+    outcome = { hitLabel: "shock", base: ctx.shockDamage, nonLethal: !!ctx.nonLethal };
+  } else {
+    return { hitLabel: "miss", base: 0, nonLethal: false };
   }
-  if (ctx.shockDamage != null && ctx.shockAC != null && ctx.attackTotal >= ctx.shockAC) {
-    return { hitLabel: "shock", base: ctx.shockDamage };
+  if (ctx.stoppedByAdvancedArmor && hasAdvancedArmor(actor)) {
+    return { hitLabel: "immune", base: 0, nonLethal: false };
   }
-  return { hitLabel: "miss", base: 0 };
+  return outcome;
 }
 
 /** Apply a weapon's save behavior (negates/half) to a raw amount. Weapons are damage-only. */
@@ -181,8 +189,13 @@ function applyWeaponSave(system, base, save) {
   return amt;
 }
 
-function weaponAmountLabel(amount, hitLabel) {
+function weaponAmountLabel(amount, hitLabel, nonLethal = false) {
   if (hitLabel === "miss") return game.i18n.localize("swnr.weapon.targeting.miss");
+  if (hitLabel === "immune") return game.i18n.localize("swnr.weapon.targeting.immune");
+  if (nonLethal && amount > 0) {
+    const key = hitLabel === "shock" ? "swnr.weapon.targeting.shockAmountNonLethal" : "swnr.weapon.targeting.damageNonLethal";
+    return game.i18n.format(key, { n: amount });
+  }
   if (hitLabel === "shock") return game.i18n.format("swnr.weapon.targeting.shockAmount", { n: amount });
   if (amount > 0) return game.i18n.format("swnr.power.amount.damage", { n: amount });
   return game.i18n.localize("swnr.power.amount.none");
@@ -211,12 +224,12 @@ export async function resolveWeaponTargets(weapon, ctx) {
     const actor = token.actor;
     if (!actor) continue;
 
-    const { hitLabel, base } = computeWeaponOutcome(ctx, actor);
+    const { hitLabel, base, nonLethal } = computeWeaponOutcome(ctx, actor);
     // Only roll a save for a target that actually took a hit and where a raw
     // amount exists (a clean miss never gets to save).
     const save = saveType && base > 0 ? await rollSaveForActor(actor, saveType) : null;
     const amount = applyWeaponSave(system, base, save);
-    const effects = hitLabel !== "miss" ? pickTargetEffects(weapon, save) : [];
+    const effects = hitLabel !== "miss" && hitLabel !== "immune" ? pickTargetEffects(weapon, save) : [];
 
     rows.push({
       tokenId: token.id,
@@ -225,8 +238,9 @@ export async function resolveWeaponTargets(weapon, ctx) {
       name: token.name ?? actor.name,
       save,
       amount,
-      amountLabel: weaponAmountLabel(amount, hitLabel),
+      amountLabel: weaponAmountLabel(amount, hitLabel, nonLethal),
       hitLabel,
+      nonLethal,
       effects,
       canModify: actor.isOwner,
       status: "pending", // pending | applied | awaitingGM | manual | reverted
@@ -241,8 +255,10 @@ export async function resolveWeaponTargets(weapon, ctx) {
 /* Suppressive fire                             */
 /* -------------------------------------------- */
 
-function suppressAmountLabel(amount, hitLabel) {
+function suppressAmountLabel(amount, hitLabel, nonLethal = false) {
+  if (hitLabel === "immune") return game.i18n.localize("swnr.weapon.targeting.immune");
   if (hitLabel === "saved" || amount <= 0) return game.i18n.localize("swnr.weapon.suppress.saved");
+  if (nonLethal) return game.i18n.format("swnr.weapon.targeting.damageNonLethal", { n: amount });
   if (hitLabel === "trauma") return game.i18n.format("swnr.weapon.suppress.trauma", { n: amount });
   return game.i18n.format("swnr.weapon.suppress.damage", { n: amount });
 }
@@ -252,10 +268,11 @@ function suppressAmountLabel(amount, hitLabel) {
  * Suppression auto-hits (no to-hit): a successful save negates, a failed save
  * takes half the weapon's damage (SWN rounds down, CWN rounds up). Under CWN a
  * per-victim trauma die can turn it into a Traumatic Hit.
- * @returns {Promise<{hitLabel: "saved"|"hit"|"trauma", amount: number}>}
+ * @returns {Promise<{hitLabel: "saved"|"hit"|"trauma"|"immune", amount: number, nonLethal: boolean}>}
  */
-async function computeSuppressionOutcome(ctx, save) {
-  if (save?.success) return { hitLabel: "saved", amount: 0 };
+async function computeSuppressionOutcome(ctx, save, actor = null) {
+  if (save?.success) return { hitLabel: "saved", amount: 0, nonLethal: false };
+  if (ctx.stoppedByAdvancedArmor && hasAdvancedArmor(actor)) return { hitLabel: "immune", amount: 0, nonLethal: false };
   const total = Math.max(0, Number(ctx.damageTotal) || 0);
   let amount = ctx.ruleset === "cwn" ? Math.ceil(total / 2) : Math.floor(total / 2);
   let hitLabel = "hit";
@@ -273,7 +290,7 @@ async function computeSuppressionOutcome(ctx, save) {
       hitLabel = "trauma";
     }
   }
-  return { hitLabel, amount };
+  return { hitLabel, amount, nonLethal: !!ctx.nonLethal && hitLabel !== "trauma" };
 }
 
 /**
@@ -293,8 +310,8 @@ export async function resolveSuppressionTargets(weapon, ctx) {
     if (!actor) continue;
 
     const save = await rollSaveForActor(actor, "evasion");
-    const { hitLabel, amount } = await computeSuppressionOutcome(ctx, save);
-    const effects = hitLabel !== "saved" ? pickTargetEffects(weapon, save) : [];
+    const { hitLabel, amount, nonLethal } = await computeSuppressionOutcome(ctx, save, actor);
+    const effects = hitLabel !== "saved" && hitLabel !== "immune" ? pickTargetEffects(weapon, save) : [];
 
     rows.push({
       tokenId: token.id,
@@ -303,8 +320,9 @@ export async function resolveSuppressionTargets(weapon, ctx) {
       name: token.name ?? actor.name,
       save,
       amount,
-      amountLabel: suppressAmountLabel(amount, hitLabel),
+      amountLabel: suppressAmountLabel(amount, hitLabel, nonLethal),
       hitLabel,
+      nonLethal,
       effects,
       canModify: actor.isOwner,
       status: "pending",
@@ -323,7 +341,7 @@ async function applyTargetRow(row) {
   const token = resolveToken(row.sceneId, row.tokenId);
   if (!token) return;
   if (row.amount !== 0) {
-    const res = await applyHealthDropToToken(token, row.amount);
+    const res = await applyHealthDropToToken(token, row.amount, { nonLethal: !!row.nonLethal });
     row.snapshot = res?.snapshot ?? null;
   }
   if (row.effects?.length && token.actor) {
@@ -464,6 +482,8 @@ export async function rerenderWeaponCard(message) {
       damageRoll: cd.damageRoll ?? null,
       ammoSpent: cd.ammoSpent ?? 0,
       targetResults: f.targetResults ?? [],
+      ammoLabel: cd.ammoLabel ?? null,
+      nonLethal: cd.nonLethal ?? false,
     };
     const content = await foundry.applications.handlebars.renderTemplate(SUPPRESS_CARD_TEMPLATE, templateData);
     await message.update({ content });
@@ -481,6 +501,8 @@ export async function rerenderWeaponCard(message) {
     traumaDamage: cd.traumaDamage ?? null,
     gearCondition: cd.gearCondition ?? null,
     targetResults: f.targetResults ?? [],
+    ammoLabel: cd.ammoLabel ?? null,
+    nonLethal: cd.nonLethal ?? false,
   };
 
   const content = await foundry.applications.handlebars.renderTemplate(WEAPON_CARD_TEMPLATE, templateData);
@@ -536,6 +558,7 @@ function requestGMApply(row, message, power, revertSnapshot = null) {
     tokenId: row.tokenId,
     actorId: row.actorId,
     amount: row.amount,
+    nonLethal: !!row.nonLethal,
     effects: row.effects ?? [],
     // When present, the GM reverts this snapshot before applying (reroll re-resolve).
     revertSnapshot: revertSnapshot ?? null,
@@ -579,7 +602,7 @@ async function handleGMApplyRequest(msg) {
     const token = resolveToken(msg.sceneId, msg.tokenId);
     if (token) {
       if (msg.amount !== 0) {
-        const res = await applyHealthDropToToken(token, msg.amount);
+        const res = await applyHealthDropToToken(token, msg.amount, { nonLethal: !!msg.nonLethal });
         snapshot = res?.snapshot ?? null;
       }
       if (msg.effects?.length && token.actor) {
@@ -691,6 +714,14 @@ async function revertTargetRow(row) {
       }
     }
     if (token?.combatant) await token.combatant.update({ defeated: !!snap.defeated });
+
+    // Restore Unconscious (set by non-lethal damage); older snapshots lack it.
+    if (snap.unconscious != null && typeof actor.toggleStatusEffect === "function") {
+      const currentlyOut = actor.statuses?.has?.("unconscious") ?? false;
+      if (!!snap.unconscious !== currentlyOut) {
+        await actor.toggleStatusEffect("unconscious", { active: !!snap.unconscious, overlay: true });
+      }
+    }
   }
   row.snapshot = null;
 }
@@ -813,16 +844,19 @@ async function rerollWeaponRow(message, index) {
     traumaTriggered: f.traumaTriggered ?? false,
     traumaDamage: f.traumaDamage ?? null,
     isMelee: f.isMelee ?? false,
+    nonLethal: f.nonLethal ?? false,
+    stoppedByAdvancedArmor: f.stoppedByAdvancedArmor ?? false,
   };
-  const { hitLabel, base } = computeWeaponOutcome(ctx, actor);
+  const { hitLabel, base, nonLethal } = computeWeaponOutcome(ctx, actor);
   const saveType = weapon.system.save || null;
   const save = saveType && base > 0 && actor ? await rollSaveForActor(actor, saveType) : null;
   const amount = applyWeaponSave(weapon.system, base, save);
   row.save = save;
   row.amount = amount;
-  row.amountLabel = weaponAmountLabel(amount, hitLabel);
+  row.amountLabel = weaponAmountLabel(amount, hitLabel, nonLethal);
   row.hitLabel = hitLabel;
-  row.effects = hitLabel !== "miss" ? pickTargetEffects(weapon, save) : [];
+  row.nonLethal = nonLethal;
+  row.effects = hitLabel !== "miss" && hitLabel !== "immune" ? pickTargetEffects(weapon, save) : [];
 
   // Re-apply (GM can modify anything).
   await applyTargetRow(row);
@@ -849,14 +883,17 @@ async function rerollSuppressionRow(message, rows, row) {
     useTrauma: f.useTrauma ?? false,
     traumaDie: f.traumaDie ?? null,
     traumaRating: f.traumaRating ?? null,
+    nonLethal: f.nonLethal ?? false,
+    stoppedByAdvancedArmor: f.stoppedByAdvancedArmor ?? false,
   };
   const save = actor ? await rollSaveForActor(actor, "evasion") : { success: false };
-  const { hitLabel, amount } = await computeSuppressionOutcome(ctx, save);
+  const { hitLabel, amount, nonLethal } = await computeSuppressionOutcome(ctx, save, actor);
   row.save = save;
   row.amount = amount;
-  row.amountLabel = suppressAmountLabel(amount, hitLabel);
+  row.amountLabel = suppressAmountLabel(amount, hitLabel, nonLethal);
   row.hitLabel = hitLabel;
-  row.effects = hitLabel !== "saved" ? pickTargetEffects(weapon, save) : [];
+  row.nonLethal = nonLethal;
+  row.effects = hitLabel !== "saved" && hitLabel !== "immune" ? pickTargetEffects(weapon, save) : [];
 
   await applyTargetRow(row);
   row.status = "applied";
@@ -926,7 +963,9 @@ export async function rerollSharedRoll(message, which) {
   if (kind === "weapon" && f.suppress) {
     // Suppression: re-roll the shared damage, re-resolve each Evasion outcome.
     const sd = f.suppressDamageData ?? { stat: 0, damageBonus: 0 };
-    const roll = safeRoll(item.system.damage + " + @stat + @damageBonus", { stat: sd.stat, damageBonus: sd.damageBonus });
+    // Prefer the formula actually fired (ammo variant); rebuild for older cards.
+    const formula = f.damageFormula ?? item.system.damage + " + @stat + @damageBonus";
+    const roll = safeRoll(formula, { stat: sd.stat, damageBonus: sd.damageBonus });
     await roll.roll();
     updates["flags.swnr.damageTotal"] = roll.total;
     updates["flags.swnr.weaponCardData.damageRoll"] = await roll.render();
@@ -936,10 +975,13 @@ export async function rerollSharedRoll(message, which) {
       useTrauma: f.useTrauma ?? false,
       traumaDie: f.traumaDie ?? null,
       traumaRating: f.traumaRating ?? null,
+      nonLethal: f.nonLethal ?? false,
+      stoppedByAdvancedArmor: f.stoppedByAdvancedArmor ?? false,
     };
     recompute = async (row) => {
-      const { hitLabel, amount } = await computeSuppressionOutcome(ctx, row.save);
-      return { amount, amountLabel: suppressAmountLabel(amount, hitLabel), hitLabel, effects: hitLabel !== "saved" ? pickTargetEffects(item, row.save) : [], save: row.save };
+      const actor = game.actors.get(row.actorId) ?? resolveToken(row.sceneId, row.tokenId)?.actor;
+      const { hitLabel, amount, nonLethal } = await computeSuppressionOutcome(ctx, row.save, actor);
+      return { amount, amountLabel: suppressAmountLabel(amount, hitLabel, nonLethal), hitLabel, nonLethal, effects: hitLabel !== "saved" && hitLabel !== "immune" ? pickTargetEffects(item, row.save) : [], save: row.save };
     };
   } else if (kind === "weapon" && which === "hit") {
     // Weapon to-hit: re-roll the attack, re-evaluate hit/shock/miss vs each AC.
@@ -955,15 +997,17 @@ export async function rerollSharedRoll(message, which) {
       traumaTriggered: f.traumaTriggered ?? false,
       traumaDamage: f.traumaDamage ?? null,
       isMelee: f.isMelee ?? false,
+      nonLethal: f.nonLethal ?? false,
+      stoppedByAdvancedArmor: f.stoppedByAdvancedArmor ?? false,
     };
     recompute = async (row) => {
       const actor = game.actors.get(row.actorId) ?? resolveToken(row.sceneId, row.tokenId)?.actor;
-      const { hitLabel, base } = computeWeaponOutcome(baseCtx, actor);
+      const { hitLabel, base, nonLethal } = computeWeaponOutcome(baseCtx, actor);
       // Reuse the existing save; roll one only if a miss just became a hit.
       let save = row.save;
       if (base > 0 && item.system.save && !save && actor) save = await rollSaveForActor(actor, item.system.save);
       const amount = applyWeaponSave(item.system, base, save);
-      return { amount, amountLabel: weaponAmountLabel(amount, hitLabel), hitLabel, effects: hitLabel !== "miss" ? pickTargetEffects(item, save) : [], save };
+      return { amount, amountLabel: weaponAmountLabel(amount, hitLabel, nonLethal), hitLabel, nonLethal, effects: hitLabel !== "miss" && hitLabel !== "immune" ? pickTargetEffects(item, save) : [], save };
     };
   } else if (kind === "weapon" && which === "shock") {
     // Weapon shock: re-roll only the shock die; only shock-hit rows change.
@@ -981,14 +1025,16 @@ export async function rerollSharedRoll(message, which) {
       if (row.hitLabel === "shock") base = newShock;
       else if (row.hitLabel === "hit") base = f.traumaTriggered && f.traumaDamage != null ? f.traumaDamage : f.mainDamage;
       const amount = applyWeaponSave(item.system, base, row.save);
-      return { amount, amountLabel: weaponAmountLabel(amount, row.hitLabel), hitLabel: row.hitLabel, effects: row.hitLabel !== "miss" ? pickTargetEffects(item, row.save) : [], save: row.save };
+      return { amount, amountLabel: weaponAmountLabel(amount, row.hitLabel, row.nonLethal), hitLabel: row.hitLabel, effects: row.hitLabel !== "miss" && row.hitLabel !== "immune" ? pickTargetEffects(item, row.save) : [], save: row.save };
     };
   } else if (kind === "weapon") {
     // Weapon damage: re-roll main damage; hit/miss is unchanged, only hit-row amounts move.
-    const roll = safeRoll(item.system.damage + " + @burstFire + @stat + @damageBonus", f.attackRollData ?? {});
+    // Prefer the formula/rating actually fired (ammo variant); rebuild for older cards.
+    const formula = f.damageFormula ?? item.system.damage + " + @burstFire + @stat + @damageBonus";
+    const roll = safeRoll(formula, f.attackRollData ?? {});
     await roll.roll();
     const newMain = roll.total;
-    const rating = item.system.trauma?.rating;
+    const rating = f.damageFormula ? f.traumaRating : item.system.trauma?.rating;
     const newTrauma = f.traumaTriggered && rating != null ? newMain * rating : null;
     updates["flags.swnr.mainDamage"] = newMain;
     if (newTrauma != null) updates["flags.swnr.traumaDamage"] = newTrauma;
@@ -998,7 +1044,7 @@ export async function rerollSharedRoll(message, which) {
       if (row.hitLabel === "hit") base = newTrauma != null ? newTrauma : newMain;
       else if (row.hitLabel === "shock") base = f.shockDamage ?? 0;
       const amount = applyWeaponSave(item.system, base, row.save);
-      return { amount, amountLabel: weaponAmountLabel(amount, row.hitLabel), hitLabel: row.hitLabel, effects: row.hitLabel !== "miss" ? pickTargetEffects(item, row.save) : [], save: row.save };
+      return { amount, amountLabel: weaponAmountLabel(amount, row.hitLabel, row.nonLethal), hitLabel: row.hitLabel, effects: row.hitLabel !== "miss" && row.hitLabel !== "immune" ? pickTargetEffects(item, row.save) : [], save: row.save };
     };
   } else {
     // Power: re-roll the power roll, re-resolve amounts from the new total.
@@ -1035,6 +1081,7 @@ export async function rerollSharedRoll(message, which) {
       row.amount = rec.amount;
       row.amountLabel = rec.amountLabel;
       row.hitLabel = rec.hitLabel;
+      if (rec.nonLethal !== undefined) row.nonLethal = rec.nonLethal;
     }
   }
 

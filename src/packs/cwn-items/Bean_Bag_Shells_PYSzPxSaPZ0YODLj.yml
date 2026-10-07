@@ -1,0 +1,61 @@
+name: Bean Bag Shells
+type: item
+img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
+folder: HG41JQWj742oQIK1
+flags: {}
+_stats:
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+  coreVersion: '13.346'
+  systemId: swnr
+  systemVersion: 2.3.2
+  createdTime: 1791331200000
+  modifiedTime: 1791331200000
+  lastModifiedBy: lKC5x4Yf023Bizof
+system:
+  cost: 1
+  description: >-
+    (Homebrew) Less-lethal fabric pouches of lead shot. Range 20/60 and -1 to
+    hit. Damage is non-lethal: a target dropped to 0 HP is knocked
+    unconscious rather than dying. Trauma rating x1, and a traumatic hit makes
+    it lethal. Advanced armor is immune.
+  favorite: false
+  quantity: 1
+  uses:
+    max: 10
+    value: 10
+    ammo: ammo
+    consumable: count
+    caliber: shotgun
+    keepEmpty: false
+    emptyQuantity: 0
+  ammoProfile:
+    label: Bean Bag
+    damage: ''
+    hitMod: -1
+    rangeNormal: 20
+    rangeMax: 60
+    traumaDie: ''
+    traumaRating: 1
+    nonLethal: true
+    stoppedByAdvancedArmor: true
+  bundle:
+    bundled: false
+  encumbrance: 0
+  noEncReadied: false
+  tl: null
+  location: stowed
+  quality: stock
+  container:
+    isContainer: false
+    isOpen: true
+    capacity:
+      max: 0
+      value: 0
+effects: []
+ownership:
+  default: 0
+_id: PYSzPxSaPZ0YODLj
+sort: 100003
+_key: '!items!PYSzPxSaPZ0YODLj'

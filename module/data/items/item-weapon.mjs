@@ -3,6 +3,7 @@ import SWNShared from '../shared.mjs';
 import { applyChatMessageMode, getChatMessageMode } from '../../helpers/utils.mjs';
 import { rememberEnabled, signedModifier } from '../../helpers/remember.mjs';
 import { resolveWeaponTargets, resolveSuppressionTargets, applyTargetResults } from '../../helpers/power-targeting.mjs';
+import { defineAmmoProfileSchema, isBlankProfile } from '../../helpers/ammo-profile.mjs';
 
 export default class SWNWeapon extends SWNBaseGearItem {
   static LOCALIZATION_PREFIXES = [
@@ -40,7 +41,13 @@ export default class SWNWeapon extends SWNBaseGearItem {
       // Magazine compatibility key. When set, only magazines whose
       // uses.magClass matches (or is blank) can be loaded — per-weapon coupling.
       // Blank = accepts any magazine of the right ammo type (freeform).
-      magClass: SWNShared.nullableString()
+      magClass: SWNShared.nullableString(),
+      // Ammo family (e.g. "shotgun"): rounds tagged with a caliber only load
+      // into weapons of the same caliber.
+      caliber: SWNShared.nullableString(),
+      // Loose-ammo mode only: the variant of the rounds poured into ammo.value.
+      // In magazine mode the loaded magazine's own ammoProfile applies instead.
+      profile: defineAmmoProfileSchema(),
     });
     schema.range = new fields.SchemaField({
       normal: SWNShared.requiredNumber(1),
@@ -134,6 +141,55 @@ export default class SWNWeapon extends SWNBaseGearItem {
     } else if (this.requiresCell) {
       this.ammo.value = 0;
     }
+  }
+
+  /**
+   * The ammo profile of the rounds currently loaded: the loaded magazine's, or
+   * the weapon's own in loose-ammo mode. Null for standard ammunition.
+   * These getters never write the overrides into damage/range/trauma, since
+   * the weapon sheet would then save the ammo's stats as the weapon's own.
+   * @returns {object|null}
+   */
+  get activeAmmoProfile() {
+    const mag = this.loadedMagazineItem;
+    const profile = mag ? mag.system.ammoProfile : this.ammo?.profile;
+    return profile && !isBlankProfile(profile) ? profile : null;
+  }
+
+  /** Display name of the loaded ammo variant, or null for standard rounds. */
+  get ammoLabel() {
+    const p = this.activeAmmoProfile;
+    if (!p) return null;
+    return p.label || this.loadedMagazineItem?.name || game.i18n.localize("swnr.ammoProfile.special");
+  }
+
+  get effectiveDamage() {
+    return this.activeAmmoProfile?.damage || this.damage;
+  }
+
+  get ammoHitMod() {
+    return this.activeAmmoProfile?.hitMod || 0;
+  }
+
+  get effectiveRange() {
+    const p = this.activeAmmoProfile;
+    return {
+      normal: p?.rangeNormal ?? this.range.normal,
+      max: p?.rangeMax ?? this.range.max,
+    };
+  }
+
+  get effectiveTrauma() {
+    const p = this.activeAmmoProfile;
+    return {
+      die: p?.traumaDie || this.trauma.die,
+      rating: p?.traumaRating ?? this.trauma.rating,
+    };
+  }
+
+  /** Hits drop targets to Unconscious rather than dying (unless trauma triggers). */
+  get attackIsNonLethal() {
+    return !!this.isNonLethal || !!this.activeAmmoProfile?.nonLethal;
   }
 
   /** Notification text for a weapon that can't fire for lack of ammo. */
@@ -254,6 +310,12 @@ export default class SWNWeapon extends SWNBaseGearItem {
     }
     const template = "systems/swnr/templates/chat/attack-roll.hbs";
     const burstFire = useBurst ? 2 : 0;
+    // Read the loaded ammo variant up front: firing may empty the magazine.
+    const ammoProfile = this.activeAmmoProfile;
+    const ammoLabel = this.ammoLabel;
+    const trauma = this.effectiveTrauma;
+    const nonLethal = this.attackIsNonLethal;
+    const stoppedByAdvancedArmor = !!ammoProfile?.stoppedByAdvancedArmor;
     const attackRollDie = game.settings.get("swnr", "attackRoll");
     let gearCondition = null;
     if (game.settings.get("swnr", "useAWNGearCondition")) {
@@ -269,17 +331,18 @@ export default class SWNWeapon extends SWNBaseGearItem {
       damageBonus,
       effectiveSkillRank: skillMod < 0 ? -2 : skillMod,
       attackRollDie,
+      ammoMod: this.ammoHitMod,
     };
-    let hitExplainTip = "1d20 +burst +mod +CharAB +WpnAB +Stat +Skill";
+    let hitExplainTip = "1d20 +burst +mod +CharAB +WpnAB +Stat +Skill +Ammo";
     let dieString =
-      "@attackRollDie + @burstFire + @modifier + @actor.ab + @weapon.ab + @stat + @effectiveSkillRank";
+      "@attackRollDie + @burstFire + @modifier + @actor.ab + @weapon.ab + @stat + @effectiveSkillRank + @ammoMod";
 
     // if using CWN armor and NPC grab melee AB.
     const useA = game.settings.get("swnr", "useCWNArmor") ? true : false;
     if (useA && item.system.isMelee && actor.type == "npc") {
       dieString =
-        "@attackRollDie + @burstFire + @modifier + @actor.meleeAb + @weapon.ab + @stat + @effectiveSkillRank";
-      hitExplainTip = "1d20 +burst +mod +CharMeleeAB +WpnAB +Stat +Skill";
+        "@attackRollDie + @burstFire + @modifier + @actor.meleeAb + @weapon.ab + @stat + @effectiveSkillRank + @ammoMod";
+      hitExplainTip = "1d20 +burst +mod +CharMeleeAB +WpnAB +Stat +Skill +Ammo";
     }
     let hitRoll = new Roll(dieString, rollData);
     hitRoll = this.safeDamageRoll(hitRoll);
@@ -300,10 +363,8 @@ export default class SWNWeapon extends SWNBaseGearItem {
     const rollArray = [hitRoll];
 
     const damageExplainTip = "roll +burst +statBonus +dmgBonus";
-    damageRoll = new Roll(
-      this.damage + " + @burstFire + @stat + @damageBonus",
-      rollData
-    );
+    const damageFormula = this.effectiveDamage + " + @burstFire + @stat + @damageBonus";
+    damageRoll = new Roll(damageFormula, rollData);
 
     let diceTooltip = {
       hitExplain: hitExplainTip,
@@ -324,11 +385,11 @@ export default class SWNWeapon extends SWNBaseGearItem {
 
       if (
         useTrauma &&
-        this.trauma.die != null &&
-        this.trauma.die !== "none" &&
-        this.trauma.rating != null
+        trauma.die != null &&
+        trauma.die !== "none" &&
+        trauma.rating != null
       ) {
-        traumaRoll = new Roll(this.trauma.die);
+        traumaRoll = new Roll(trauma.die);
         await traumaRoll.roll();
         traumaRollRender = await traumaRoll.render();
         if (
@@ -338,7 +399,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
           damageRoll?.total
         ) {
           const traumaDamageRoll = new Roll(
-            `${damageRoll.total} * ${this.trauma.rating}`
+            `${damageRoll.total} * ${trauma.rating}`
           );
           await traumaDamageRoll.roll();
           traumaDamage = await traumaDamageRoll.render();
@@ -350,12 +411,12 @@ export default class SWNWeapon extends SWNBaseGearItem {
     else {
       if (
         useTrauma &&
-        this.trauma.die != null &&
-        this.trauma.die !== "none" &&
-        this.trauma.rating != null
+        trauma.die != null &&
+        trauma.die !== "none" &&
+        trauma.rating != null
       ) {
-        traumaRoll = new Roll(this.trauma.die);
-        traumaRating = this.trauma.rating;
+        traumaRoll = new Roll(trauma.die);
+        traumaRating = trauma.rating;
       }
     } // end of no damage roll setting
     // Placeholder for shock damage
@@ -410,6 +471,8 @@ export default class SWNWeapon extends SWNBaseGearItem {
         traumaTriggered,
         traumaDamage: traumaDamageValue,
         isMelee: this.isMelee,
+        nonLethal,
+        stoppedByAdvancedArmor,
       };
       targetResults = await resolveWeaponTargets(this.parent, targetCtx);
     }
@@ -422,6 +485,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
       stat,
       damageBonus,
       effectiveSkillRank: rollData.effectiveSkillRank,
+      ammoMod: rollData.ammoMod,
       actor: { ab: rollData.actor?.ab ?? 0, meleeAb: rollData.actor?.meleeAb ?? 0 },
       weapon: { ab: this.ab },
     };
@@ -447,6 +511,8 @@ export default class SWNWeapon extends SWNBaseGearItem {
       traumaRollRender,
       gearCondition,
       targetResults,
+      ammoLabel,
+      nonLethal,
     };
     const rollMode = getChatMessageMode();
     const diceData = Roll.fromTerms([foundry.dice.terms.PoolTerm.fromRolls(rollArray)]);
@@ -477,6 +543,8 @@ export default class SWNWeapon extends SWNBaseGearItem {
             "weaponId": this.id,
             "traumaFormula": traumaRoll?.formula || null,
             "traumaRating": traumaRating,
+            "ammoLabel": ammoLabel,
+            "nonLethal": nonLethal,
           },
         }
       };
@@ -497,6 +565,12 @@ export default class SWNWeapon extends SWNBaseGearItem {
           traumaTriggered,
           traumaDamage: traumaDamageValue,
           isMelee: this.isMelee,
+          // Snapshot of the ammo variant fired, so rerolls after a magazine
+          // swap still use these stats rather than the weapon's current ones.
+          damageFormula,
+          traumaRating: trauma.rating,
+          nonLethal,
+          stoppedByAdvancedArmor,
           targetResults,
           weaponCardData: {
             diceTooltip,
@@ -506,6 +580,8 @@ export default class SWNWeapon extends SWNBaseGearItem {
             traumaRollRender,
             traumaDamage,
             gearCondition,
+            ammoLabel,
+            nonLethal,
           },
         },
       });
@@ -558,7 +634,10 @@ export default class SWNWeapon extends SWNBaseGearItem {
     }
 
     const rollData = { actor: actor.getRollData(), weapon: this, stat, damageBonus };
-    let damageRoll = new Roll(this.damage + " + @stat + @damageBonus", rollData);
+    const trauma = this.effectiveTrauma;
+    const ammoLabel = this.ammoLabel;
+    const damageFormula = this.effectiveDamage + " + @stat + @damageBonus";
+    let damageRoll = new Roll(damageFormula, rollData);
     damageRoll = this.safeDamageRoll(damageRoll);
     await damageRoll.roll();
     const damageRender = await damageRoll.render();
@@ -567,8 +646,10 @@ export default class SWNWeapon extends SWNBaseGearItem {
       damageTotal: damageRoll.total,
       ruleset,
       useTrauma: game.settings.get("swnr", "useTrauma") ? true : false,
-      traumaDie: this.trauma?.die ?? null,
-      traumaRating: this.trauma?.rating ?? null,
+      traumaDie: trauma.die ?? null,
+      traumaRating: trauma.rating ?? null,
+      nonLethal: this.attackIsNonLethal,
+      stoppedByAdvancedArmor: !!this.activeAmmoProfile?.stoppedByAdvancedArmor,
     };
     const targetResults = await resolveSuppressionTargets(item, ctx);
     if (!targetResults) return;
@@ -590,6 +671,8 @@ export default class SWNWeapon extends SWNBaseGearItem {
       damageRoll: damageRender,
       ammoSpent,
       targetResults,
+      ammoLabel,
+      nonLethal: ctx.nonLethal,
     };
     const chatContent = await foundry.applications.handlebars.renderTemplate(template, cardData);
     const rollMode = getChatMessageMode();
@@ -609,9 +692,12 @@ export default class SWNWeapon extends SWNBaseGearItem {
           useTrauma: ctx.useTrauma,
           traumaDie: ctx.traumaDie,
           traumaRating: ctx.traumaRating,
+          damageFormula,
+          nonLethal: ctx.nonLethal,
+          stoppedByAdvancedArmor: ctx.stoppedByAdvancedArmor,
           suppressDamageData: { stat, damageBonus },
           targetResults,
-          weaponCardData: { damageRoll: damageRender, ammoSpent },
+          weaponCardData: { damageRoll: damageRender, ammoSpent, ammoLabel, nonLethal: ctx.nonLethal },
         },
       },
     };

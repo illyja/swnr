@@ -37,6 +37,7 @@ system:
     diceSize: d20
     diceBonus: +@str.mod+ceil(@lvl / 2)
   uses:
+    caliber: shotgun
     magClass: shotgun
     max: 2
     value: 2

@@ -872,6 +872,10 @@
           "isHeavy": {
             "label": "Heavy"
           },
+          "isAdvanced": {
+            "label": "Advanced",
+            "hint": "Advanced armor is immune to ammo marked 'stopped by advanced armor', such as bean bags."
+          },
           "shieldMeleeACBonus": {
             "label": "Shield Melee AC Bonus"
           },
@@ -2069,7 +2073,8 @@
         "fullDamage": "Apply damage to selected token(s)",
         "halfDamage": "Apply half damage to selected token(s)",
         "fullHealing": "Apply healing to selected token(s)",
-        "fullDamageModified": "Apply modified damage to selected token(s)"
+        "fullDamageModified": "Apply modified damage to selected token(s)",
+      "nonLethalDamage": "Apply non-lethal damage to selected token(s): at 0 HP they fall Unconscious instead of dying"
       },
       "spike": {
         "fail3": "Catastrophic dimensional energy incursion.  Ship emerges around a star within 1d6 hexes  of the target destination with drive and all systems destroyed.",
@@ -2192,6 +2197,8 @@
       "looseRoundsName": "{type} (loose)",
       "magClass": "Magazine Class",
       "magClassHint": "e.g. combat-rifle (blank fits any)",
+      "caliber": "Caliber",
+      "caliberHint": "e.g. shotgun (rounds of a caliber only load into the same caliber)",
       "noLoadedMagazine": "No compatible loaded magazine available for this weapon. Load rounds into a matching magazine, or shift+click to bypass.",
       "burst": "Use Burst Fire",
       "skillAddDamage": "Skill adds to damage",
@@ -2201,6 +2208,9 @@
         "hint": "When enabled, attacking compares the to-hit roll against each targeted token's AC, applies damage (or trauma/shock) to hits, and rolls any save. Requires damage auto-roll.",
         "miss": "miss",
         "shockAmount": "{n} shock",
+        "immune": "immune (armor)",
+        "damageNonLethal": "{n} dmg (non-lethal)",
+        "shockAmountNonLethal": "{n} shock (non-lethal)",
         "notify": {
           "rerolled": "{target}: re-rolled attack — {effect}"
         }
@@ -2217,6 +2227,28 @@
           "rerolled": "{target}: re-rolled Evasion save — {effect}"
         }
       }
+    },
+    "ammoProfile": {
+      "legend": "Ammo Profile",
+      "hint": "How these rounds change the weapon firing them. Leave a field blank to use the weapon's own value.",
+      "loadedHint": "The variant currently loaded in this magazine. Loading rounds from a box replaces it.",
+      "label": "Name",
+      "labelHint": "blank = item name",
+      "damage": "Damage",
+      "hitMod": "To-Hit",
+      "range": "Range",
+      "traumaDie": "Trauma Die",
+      "traumaRating": "Trauma Rating",
+      "nonLethal": "Non-Lethal",
+      "nonLethalHint": "Drops a target to Unconscious instead of dying, unless it's a traumatic hit.",
+      "stoppedByAdvancedArmor": "Stopped by advanced armor",
+      "standard": "standard rounds",
+      "special": "Special ammo",
+      "loaded": "Loaded",
+      "nonLethalTag": "Non-lethal",
+      "swapTitle": "Change Ammo",
+      "swapPrompt": "{name} holds {n} {old}. Unload them back into boxes and load {new}?",
+      "wrongCaliber": "{ammo} doesn't fit {name} (different caliber)."
     },
     "titles": {
       "savingThrow": "{throwType} Saving Throw"

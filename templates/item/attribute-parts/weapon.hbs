@@ -77,6 +77,13 @@
           ({{related.loadedMagazine.system.uses.value}}/{{related.loadedMagazine.system.uses.max}})
         </div>
         {{/if}}
+        {{#if system.ammoLabel}}
+        <div>{{localize 'swnr.ammoProfile.loaded'}}: </div>
+        <div class="grid-span-3 ammo-variant-summary">
+          <strong>{{system.ammoLabel}}</strong> &mdash;
+          {{system.effectiveDamage}}, {{system.effectiveRange.normal}}/{{system.effectiveRange.max}}{{#if system.ammoHitMod}}, {{numberFormat system.ammoHitMod sign=true}} {{localize 'swnr.ammoProfile.hitMod'}}{{/if}}{{#if system.attackIsNonLethal}}, {{localize 'swnr.ammoProfile.nonLethalTag'}}{{/if}}
+        </div>
+        {{/if}}
         {{/if}}
 
         <div class="resource grid-span-2">
@@ -95,10 +102,15 @@
       </div>
       {{#if (and (ne system.ammo.type "none") (ne system.ammo.type "infinite"))}}
       <div class="grid grid-4col" style="margin-top:0px;">
-        <div class="resource grid-span-4">
+        <div class="resource grid-span-2">
           <label class="resource-label">{{localize 'swnr.weapon.magClass'}}</label>
           <input type="text" name="system.ammo.magClass" value="{{system.ammo.magClass}}"
             placeholder="{{localize 'swnr.weapon.magClassHint'}}" />
+        </div>
+        <div class="resource grid-span-2">
+          <label class="resource-label">{{localize 'swnr.weapon.caliber'}}</label>
+          <input type="text" name="system.ammo.caliber" value="{{system.ammo.caliber}}"
+            placeholder="{{localize 'swnr.weapon.caliberHint'}}" />
         </div>
       </div>
       {{/if}}

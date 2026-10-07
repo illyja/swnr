@@ -659,3 +659,23 @@
   font-size: 0.85em;
   opacity: 0.8;
 }
+
+// Ammo variant tags on attack / damage / suppression cards
+.ammo-variant-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.2rem 0;
+
+  .ammo-variant-badge {
+    padding: 0 0.35em;
+    font-size: 0.85em;
+    border: 1px solid #6a7f9a;
+    border-radius: 3px;
+
+    &.non-lethal {
+      border-color: #4a8a5a;
+      color: #3d7a4c;
+    }
+  }
+}

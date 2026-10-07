@@ -14,6 +14,7 @@ _stats:
   lastModifiedBy: iXDXVi7OlHcRwXw0
 _id: nlis9pdjqyq2ond2
 system:
+  isAdvanced: true
   ac: 19
   meleeAc: 19
   traumaDiePenalty: 4

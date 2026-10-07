@@ -1,6 +1,7 @@
 const { api, sheets } = foundry.applications;
 import { ContainerHelper } from '../helpers/container-helper.mjs';
 import { getChatMessageMode } from '../helpers/utils.mjs';
+import { blankProfile, caliberFits, profileFromSource, profileKey } from '../helpers/ammo-profile.mjs';
 
 /**
  * An actor's non-empty loose rounds (`count` consumables) of `ammoType`, in
@@ -9,16 +10,21 @@ import { getChatMessageMode } from '../helpers/utils.mjs';
  * @param {Actor} actor
  * @param {string} ammoType
  * @param {string|null} excludeId
+ * @param {object} [filter]
+ * @param {string} [filter.variant]  only boxes of this ammo variant (profileKey)
+ * @param {string|null} [filter.caliber]  only boxes that fit a receiver of this caliber
  * @returns {Item[]}
  */
-function looseRoundsFor(actor, ammoType, excludeId = null) {
+function looseRoundsFor(actor, ammoType, excludeId = null, { variant, caliber } = {}) {
   return actor.items
     .filter((i) => i.type === 'item'
       && i.system.uses?.consumable === 'count'
       && i.system.uses?.ammo === ammoType
       && i.id !== excludeId
       && i.system.uses.value > 0
-      && i.system.quantity > 0)
+      && i.system.quantity > 0
+      && (variant === undefined || profileKey(i.system.ammoProfile) === variant)
+      && (caliber === undefined || caliberFits(i.system.uses.caliber, caliber)))
     .sort((a, b) =>
       ((b.system.location === 'readied') - (a.system.location === 'readied'))
       || (a.system.uses.value - b.system.uses.value));
@@ -26,7 +32,8 @@ function looseRoundsFor(actor, ammoType, excludeId = null) {
 
 /**
  * Draw up to `needed` loose rounds of `ammoType` from an actor's inventory:
- * the preferred item first, then the rest in looseRoundsFor() order.
+ * the preferred item first, then other boxes of the same ammo variant (so
+ * slugs never get mixed with standard rounds) in looseRoundsFor() order.
  * @param {Actor} actor
  * @param {string} ammoType
  * @param {number} needed
@@ -34,7 +41,12 @@ function looseRoundsFor(actor, ammoType, excludeId = null) {
  * @returns {Promise<{drawn: number, used: {name: string, n: number}[]}>}
  */
 async function drawLooseRounds(actor, ammoType, needed, preferred = null) {
-  const others = looseRoundsFor(actor, ammoType, preferred?.id ?? null);
+  const variantFilter = preferred
+    ? { variant: profileKey(preferred.system.ammoProfile), caliber: preferred.system.uses.caliber ?? null }
+    : {};
+  // Same caliber exactly: don't pad shotgun shells with generic rounds or vice versa.
+  const others = looseRoundsFor(actor, ammoType, preferred?.id ?? null, variantFilter)
+    .filter((i) => !preferred || (i.system.uses.caliber ?? null) === (preferred.system.uses.caliber ?? null));
   const order = preferred ? [preferred, ...others] : others;
   let drawn = 0;
   const used = [];
@@ -53,20 +65,25 @@ const describeRounds = (used) => used.map((u) => `${u.n} from ${u.name}`).join("
 
 /**
  * Put `n` loose rounds of `ammoType` back into an actor's inventory: top off
- * non-full boxes of that ammo type (the preferred box first), then create new
- * boxes for the rest, copied from an existing box of the type when there is
- * one (otherwise a generic "<ammo type> (loose)" item sized to the remainder).
+ * non-full boxes of that ammo type and variant (the preferred box first), then
+ * create new boxes for the rest, copied from an existing box of the variant
+ * when there is one (otherwise a generic "<label> (loose)" item sized to the
+ * remainder, carrying the variant's profile).
  * @param {Actor} actor
  * @param {string} ammoType
  * @param {number} n
  * @param {string|null} preferredId
+ * @param {object|null} profile  ammo profile of the rounds being returned
+ * @param {string|null} caliber  caliber for a newly created box
  * @returns {Promise<{placed: {name: string, n: number, id: string}[]}>}
  */
-async function returnLooseRounds(actor, ammoType, n, preferredId = null) {
+async function returnLooseRounds(actor, ammoType, n, preferredId = null, profile = null, caliber = null) {
+  const variant = profileKey(profile);
   const sameType = actor.items.filter((i) => i.type === 'item'
     && i.system.uses?.consumable === 'count'
     && i.system.uses?.ammo === ammoType
-    && i.system.quantity > 0);
+    && i.system.quantity > 0
+    && profileKey(i.system.ammoProfile) === variant);
   const partial = sameType
     .filter((i) => i.system.uses.value < i.system.uses.max)
     .sort((a, b) => (b.id === preferredId) - (a.id === preferredId));
@@ -88,14 +105,18 @@ async function returnLooseRounds(actor, ammoType, n, preferredId = null) {
       data.system.quantity = 1;
       data.system.uses.emptyQuantity = 0;
     } else {
-      const label = game.i18n.localize(CONFIG.SWN.ammoTypes[ammoType] ?? ammoType);
+      const label = (variant && profile?.label) || game.i18n.localize(CONFIG.SWN.ammoTypes[ammoType] ?? ammoType);
       data = {
         name: game.i18n.format("swnr.weapon.looseRoundsName", { type: label }),
         type: "item",
         img: "systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg",
         system: {
           encumbrance: 0, location: "stowed", quantity: 1,
-          uses: { consumable: "count", ammo: ammoType, value: left, max: left, keepEmpty: false, emptyQuantity: 0 },
+          uses: {
+            consumable: "count", ammo: ammoType, value: left, max: left, keepEmpty: false, emptyQuantity: 0,
+            caliber: variant ? caliber : null,
+          },
+          ammoProfile: variant ? foundry.utils.deepClone(profile) : blankProfile(),
         },
       };
     }
@@ -110,6 +131,22 @@ async function returnLooseRounds(actor, ammoType, n, preferredId = null) {
     for (const c of created) placed.push({ name: c.name, n: c.system.uses.value, id: c.id });
   }
   return { placed };
+}
+
+/**
+ * Ask before replacing rounds of one ammo variant with another. The old rounds
+ * go back into boxes (see returnLooseRounds).
+ * @returns {Promise<boolean>}
+ */
+async function confirmVariantSwap(holderName, rounds, oldLabel, newLabel) {
+  const standard = game.i18n.localize("swnr.ammoProfile.standard");
+  return foundry.applications.api.DialogV2.confirm({
+    window: { title: game.i18n.localize("swnr.ammoProfile.swapTitle") },
+    content: `<p>${foundry.utils.escapeHTML(game.i18n.format("swnr.ammoProfile.swapPrompt", {
+      name: holderName, n: rounds, old: oldLabel || standard, new: newLabel || standard,
+    }))}</p>`,
+    rejectClose: false,
+  });
 }
 
 /**
@@ -857,10 +894,6 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
       // ammo.value (SWN abstract loose ammo / clip bundles).
       let currentAmmo = item.system.ammo.value;
       let ammoNeeded = ammoMax - currentAmmo;
-      if (ammoNeeded <= 0) {
-        ui.notifications.info("Weapon already full.");
-        return;
-      }
 
       let ammoReloadDesc = '';
       let extraMessage = "";
@@ -869,15 +902,22 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
       }
       let ammoToAdd = 0;
       if (item.system.ammo.current == null || item.system.ammo.current == "") {
+        if (ammoNeeded <= 0) return ui.notifications.info("Weapon already full.");
         ui.notifications?.error("No ammo source currently set. Not reloading. Hold shift+click to bypass and reload.");
         return;
       }
 
+      const weaponCaliber = item.system.ammo.caliber ?? null;
       let ammoItem = this.actor.items.get(item.system.ammo.current);
+      if (ammoItem && !caliberFits(ammoItem.system.uses?.caliber, weaponCaliber)) {
+        ui.notifications?.error(game.i18n.format("swnr.ammoProfile.wrongCaliber", { ammo: ammoItem.name, name: item.name }));
+        return;
+      }
       if (ammoItem == null) {
         // The selected source is gone (e.g. an emptied box of loose rounds was
-        // removed): switch to another box of the same ammo type, if any.
-        const replacement = looseRoundsFor(this.actor, ammoType)[0];
+        // removed): switch to another box of the same ammo type and variant.
+        const replacement = looseRoundsFor(this.actor, ammoType, null,
+          { variant: profileKey(item.system.ammo.profile), caliber: weaponCaliber })[0];
         if (!replacement) {
           ui.notifications?.error(`No loose rounds left for ${item.name}. Hold shift+click to bypass and reload.`);
           return;
@@ -885,6 +925,24 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
         await item.update({ "system.ammo.current": replacement.id });
         ammoItem = replacement;
       }
+
+      // Loading a different ammo variant: the rounds already chambered come out
+      // first (back into boxes), so the weapon only ever holds one variant.
+      const newProfile = profileFromSource(ammoItem);
+      const oldProfile = item.system.ammo.profile;
+      if (currentAmmo > 0 && profileKey(oldProfile) !== profileKey(newProfile)) {
+        const ok = await confirmVariantSwap(item.name, currentAmmo, oldProfile?.label, newProfile.label);
+        if (!ok) return;
+        const { placed } = await returnLooseRounds(this.actor, ammoType, currentAmmo, null, oldProfile, weaponCaliber);
+        extraMessage += ` Unloaded ${placed.map((p) => `${p.n} into ${p.name}`).join(", ")}.`;
+        currentAmmo = 0;
+        ammoNeeded = ammoMax;
+      }
+      if (ammoNeeded <= 0) {
+        ui.notifications.info("Weapon already full.");
+        return;
+      }
+
       if (ammoItem.system.uses.consumable == 'bundle') {
         if (ammoItem.system.quantity == 0 || ammoItem.system.uses.emptyQuantity == ammoItem.system.quantity) {
           ui.notifications?.error(`All ${ammoItem.name} are empty. Hold shift+click to bypass and reload.`);
@@ -907,7 +965,9 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
         // If the selected box was emptied and removed, point the weapon at the
         // next box of the same ammo type so the "Ammo Used" field stays useful.
         if (!this.actor.items.has(ammoItem.id)) {
-          const next = looseRoundsFor(this.actor, ammoType)[0];
+          const next = looseRoundsFor(this.actor, ammoType, null,
+            { variant: profileKey(newProfile), caliber: weaponCaliber })[0]
+            ?? looseRoundsFor(this.actor, ammoType, null, { caliber: weaponCaliber })[0];
           if (next) await item.update({ "system.ammo.current": next.id });
         }
       } else {
@@ -922,7 +982,7 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
       let newAmmoValue = currentAmmo + ammoToAdd;
       if (newAmmoValue > ammoMax) newAmmoValue = ammoMax;
 
-      await item.update({ "system.ammo.value": newAmmoValue });
+      await item.update({ "system.ammo.value": newAmmoValue, "system.ammo.profile": newProfile });
 
       const content = `<p>Reloaded ${item.name}${ammoReloadDesc}.${extraMessage}</p>`;
       ChatMessage.create({
@@ -949,28 +1009,24 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
         ui.notifications?.info(game.i18n.localize("swnr.weapon.magazineUnsized"));
         return;
       }
-      const needed = max - value;
-      if (needed <= 0) {
-        ui.notifications?.info(game.i18n.format("swnr.weapon.magazineFull", { name: mag.name }));
-        return;
-      }
-
-      const sources = this.actor.items.filter(
-        (i) => i.type === 'item'
-          && i.system.uses?.consumable === 'count'
-          && i.system.uses?.ammo === ammo
-          && i.system.uses.value > 0
-          && i.system.quantity > 0
-      );
+      const full = value >= max;
+      const notifyFull = () => ui.notifications?.info(game.i18n.format("swnr.weapon.magazineFull", { name: mag.name }));
+      const magCaliber = mag.system.uses.caliber ?? null;
+      const loadedKey = profileKey(mag.system.ammoProfile);
+      let sources = looseRoundsFor(this.actor, ammo, null, { caliber: magCaliber });
+      // A full magazine can still be swapped over to a different variant.
+      if (full) sources = sources.filter((s) => profileKey(s.system.ammoProfile) !== loadedKey);
       if (sources.length === 0) {
+        if (full) return notifyFull();
         ui.notifications?.error(game.i18n.format("swnr.weapon.noLooseRounds", { name: mag.name }));
         return;
       }
 
-      let source = sources[0];
+      // Default to rounds of the variant already in the magazine, if any.
+      let source = (value > 0 && sources.find((s) => profileKey(s.system.ammoProfile) === loadedKey)) || sources[0];
       if (sources.length > 1) {
         const options = sources
-          .map((s) => `<option value="${s.id}">${foundry.utils.escapeHTML(s.name)} (${s.system.uses.value}/${s.system.uses.max}${s.system.quantity > 1 ? ` ×${s.system.quantity}` : ""})</option>`)
+          .map((s) => `<option value="${s.id}"${s === source ? " selected" : ""}>${foundry.utils.escapeHTML(s.name)} (${s.system.uses.value}/${s.system.uses.max}${s.system.quantity > 1 ? ` ×${s.system.quantity}` : ""})</option>`)
           .join("");
         const content = `<div class="form-group"><label>${game.i18n.localize("swnr.weapon.selectRounds")}</label>
           <select name="src" style="flex:2;">${options}</select></div>`;
@@ -992,16 +1048,31 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
         source = sources.find((s) => s.id === srcId);
         if (!source) return;
       }
+      if (full && profileKey(source.system.ammoProfile) === loadedKey) return notifyFull();
 
-      // The chosen source first, then any other loose rounds of this ammo type.
-      const { drawn, used } = await drawLooseRounds(this.actor, ammo, needed, source);
+      // A magazine holds one ammo variant: loading a different one first
+      // returns the rounds already in it to boxes.
+      const newProfile = profileFromSource(source);
+      let current = value;
+      let note = "";
+      if (current > 0 && loadedKey !== profileKey(newProfile)) {
+        const ok = await confirmVariantSwap(mag.name, current, mag.system.ammoProfile.label, newProfile.label);
+        if (!ok) return;
+        const { placed } = await returnLooseRounds(this.actor, ammo, current, null, mag.system.ammoProfile, magCaliber);
+        note = ` Unloaded ${placed.map((p) => `${p.n} into ${p.name}`).join(", ")}.`;
+        await mag.update({ "system.uses.value": 0 });
+        current = 0;
+      }
+
+      // The chosen source first, then other loose rounds of the same variant.
+      const { drawn, used } = await drawLooseRounds(this.actor, ammo, max - current, source);
       if (drawn <= 0) return;
-      const newValue = value + drawn;
-      await mag.update({ "system.uses.value": newValue });
+      const newValue = current + drawn;
+      await mag.update({ "system.uses.value": newValue, "system.ammoProfile": newProfile });
 
       ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        content: `<p>Loaded ${drawn} round(s) into ${mag.name} (${describeRounds(used)}; ${newValue}/${max}).</p>`,
+        content: `<p>Loaded ${drawn} round(s) into ${mag.name} (${describeRounds(used)}; ${newValue}/${max}).${note}</p>`,
       });
     }
 
@@ -1044,8 +1115,8 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
       }
 
       // Loose rounds go back into boxes of the same ammo type.
-      const { placed } = await returnLooseRounds(this.actor, ammo.type, rounds, ammo.current);
-      const update = { "system.ammo.value": 0 };
+      const { placed } = await returnLooseRounds(this.actor, ammo.type, rounds, ammo.current, ammo.profile, ammo.caliber ?? null);
+      const update = { "system.ammo.value": 0, "system.ammo.profile": blankProfile() };
       // Keep "Ammo Used" pointing at a real box (its box may have been removed
       // when it was emptied).
       if (placed.length && !this.actor.items.has(ammo.current)) update["system.ammo.current"] = placed[0].id;

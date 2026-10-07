@@ -113,6 +113,9 @@
 
           <div class="item-rounds item-prop flexrow">
             {{item.system.uses.value}} / {{item.system.uses.max}}
+              {{#if (and (eq item.system.uses.consumable "magazine") item.system.ammoProfile.label)}}
+                <span class="ammo-variant-badge">{{item.system.ammoProfile.label}}</span>
+              {{/if}}
               <!-- Buttons -->
               <a 
                 class="item-control"

@@ -1,6 +1,7 @@
 import { prepareActiveEffectCategories } from '../helpers/effects.mjs';
 import { getGameSettings } from '../helpers/register-settings.mjs';
 import { checkboxFieldWidget, groupFieldWidget } from '../helpers/handlebar.mjs';
+import { caliberFits } from '../helpers/ammo-profile.mjs';
 
 
 const { api, sheets } = foundry.applications;
@@ -618,9 +619,12 @@ export class SWNItemSheet extends api.HandlebarsApplicationMixin(
       //console.log(`Ammo type for ${item.name} is ${ammoType}`);
       if (ammoType && ammoType !== 'none') {
         // Loose-ammo sources only; magazines are loaded via the reload swap.
+        // Rounds of another caliber (shotgun shells for a rifle) are left out.
+        const caliber = item.system.ammo?.caliber ?? null;
         ammo = parent.items.filter(
           (i) => i.type === 'item' && ["count", "bundle"].includes(i.system.uses.consumable)
             && i.system.uses.ammo === ammoType
+            && caliberFits(i.system.uses.caliber, caliber)
         );
       }
       // Magazine currently loaded into the weapon (magazine mode), if any.

@@ -19,6 +19,8 @@ export default class SWNArmor extends SWNBaseGearItem {
     schema.traumaDiePenalty = SWNShared.requiredNumber(0);
     schema.isSubtle = new fields.BooleanField({initial: false});
     schema.isHeavy = new fields.BooleanField({initial: false});
+    // Advanced armor shrugs off ammo flagged stoppedByAdvancedArmor (bean bags).
+    schema.isAdvanced = new fields.BooleanField({initial: false});
     schema.shieldMeleeACBonus = SWNShared.nullableNumber();
     schema.shieldACBonus = SWNShared.nullableNumber();
     return schema;

@@ -402,3 +402,20 @@
   }
 }
 
+
+// Loaded ammo variant (slugs, bean bags, ...): badge on weapon/magazine rows and chat cards
+.swnr {
+  .ammo-variant-badge {
+    margin-left: 0.35em;
+    padding: 0 0.3em;
+    font-size: 0.8em;
+    border: 1px solid var(--accent-color);
+    border-radius: 3px;
+    color: var(--accent-color);
+    white-space: nowrap;
+  }
+
+  .ammo-variant-summary {
+    font-size: 0.9em;
+  }
+}

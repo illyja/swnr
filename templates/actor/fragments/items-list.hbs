@@ -288,7 +288,8 @@
             <!-- Damage/AC/Roll Formula (centered under header) -->
             <div class="item-formula item-prop">
               {{#if (eq ../type "weapon")}}
-                {{item.system.damage}}
+                {{item.system.effectiveDamage}}
+                {{#if item.system.ammoLabel}}<span class="ammo-variant-badge" data-tooltip="{{item.system.ammoLabel}}: {{item.system.effectiveRange.normal}}/{{item.system.effectiveRange.max}}">{{item.system.ammoLabel}}</span>{{/if}}
               {{else if (eq ../type "armor")}}
                 {{item.system.ac}}
               {{else}}
