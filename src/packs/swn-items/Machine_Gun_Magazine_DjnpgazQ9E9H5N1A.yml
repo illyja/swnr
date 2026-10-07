@@ -1,0 +1,48 @@
+name: Machine Gun Magazine
+type: item
+img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
+folder: rvD6mRxUC48bljtg
+flags: {}
+_stats:
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+  coreVersion: '13.346'
+  systemId: swnr
+  systemVersion: 2.3.1
+  createdTime: 1791331200000
+  modifiedTime: 1791331200000
+  lastModifiedBy: null
+system:
+  cost: 250
+  description: >-
+    A compact box magazine for heavy machine guns, holding 10 rounds of firing. Each round of firing eats 25 credits worth of projectile ammunition. Load it with the reload control; a swapped-out magazine keeps its remaining rounds.
+  encumbrance: 0
+  noEncReadied: false
+  favorite: false
+  quantity: 1
+  bundle:
+    bundled: false
+  tl: 3
+  location: stowed
+  quality: stock
+  container:
+    isContainer: false
+    isOpen: true
+    capacity:
+      max: 0
+      value: 0
+  uses:
+    caliber: machine-gun
+    max: 10
+    value: 10
+    emptyQuantity: 0
+    consumable: magazine
+    ammo: ammo
+    keepEmpty: true
+effects: []
+ownership:
+  default: 0
+_id: DjnpgazQ9E9H5N1A
+sort: 79000
+_key: '!items!DjnpgazQ9E9H5N1A'
