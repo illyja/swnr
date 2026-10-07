@@ -1,0 +1,60 @@
+name: Shotgun Shells, 20 rounds
+type: item
+folder: rvD6mRxUC48bljtg
+flags: {}
+_stats:
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+  coreVersion: '13.346'
+  systemId: swnr
+  systemVersion: 2.3.2
+  createdTime: 1791331200000
+  modifiedTime: 1791331200000
+  lastModifiedBy: null
+_id: sRMsw5vHLu7YZW1y
+system:
+  favorite: false
+  uses:
+    max: 20
+    value: 20
+    ammo: ammo
+    consumable: count
+    caliber: shotgun
+    keepEmpty: false
+    emptyQuantity: 0
+  ammoProfile:
+    label: ''
+    damage: ''
+    hitMod: 0
+    rangeNormal: null
+    rangeMax: null
+    traumaDie: ''
+    traumaRating: null
+    nonLethal: false
+    stoppedByAdvancedArmor: false
+  quantity: 1
+  bundle:
+    amount: 3
+    bundled: false
+  cost: 10
+  description: >-
+    Standard shot ammunition for shotguns. Shotguns take only shotgun-caliber
+    ammunition. The shotgun's own statistics are for shot.
+  encumbrance: 1
+  location: other
+  quality: stock
+  tl: 2
+  noEncReadied: false
+  container:
+    isContainer: false
+    isOpen: true
+    capacity:
+      max: 0
+      value: 0
+effects: []
+img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
+ownership:
+  default: 0
+sort: 0
+_key: '!items!sRMsw5vHLu7YZW1y'
