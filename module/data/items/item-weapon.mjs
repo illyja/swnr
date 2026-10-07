@@ -1,6 +1,7 @@
 import SWNBaseGearItem from './base-gear-item.mjs';
 import SWNShared from '../shared.mjs';
 import { applyChatMessageMode, getChatMessageMode } from '../../helpers/utils.mjs';
+import { rememberEnabled, signedModifier } from '../../helpers/remember.mjs';
 import { resolveWeaponTargets, resolveSuppressionTargets, applyTargetResults } from '../../helpers/power-targeting.mjs';
 
 export default class SWNWeapon extends SWNBaseGearItem {
@@ -51,6 +52,11 @@ export default class SWNWeapon extends SWNBaseGearItem {
       burst: new fields.BooleanField({ initial: false }),
       modifier: SWNShared.requiredNumber(0),
       isNonLethal: new fields.BooleanField({ initial: false }),
+      // Remembered skill is kept here rather than overwriting `skill`, so
+      // forgetting restores the weapon's own skill. Null falls back to `skill`.
+      skill: SWNShared.nullableString(),
+      // Stat picked in the dialog, only used when the weapon's stat is "ask".
+      stat: SWNShared.nullableString(),
     });
     //schema.quantity = SWNShared.requiredNumber(1);
     schema.save = SWNShared.stringChoices(null, CONFIG.SWN.saveTypes, false);
@@ -155,6 +161,41 @@ export default class SWNWeapon extends SWNBaseGearItem {
     } else {
       const newVal = Math.max(0, this.ammo.value - rounds);
       await this.parent.update({ "system.ammo.value": newVal });
+    }
+  }
+
+  /** The `system.remember` value for a weapon with nothing remembered. */
+  static forgottenRemember() {
+    return { use: false, burst: false, modifier: 0, isNonLethal: false, skill: null, stat: null };
+  }
+
+  /** Remembered settings are set and the world allows them. */
+  get rememberActive() {
+    return !!this.remember?.use && rememberEnabled();
+  }
+
+  get rememberedSkill() {
+    return this.remember?.skill ?? this.skill;
+  }
+
+  /** Human-readable summary, e.g. "Shoot · Burst · +1". */
+  get rememberSummary() {
+    const skillName = this.parent?.actor?.items.get(this.rememberedSkill)?.name;
+    const stat = this.stat === "ask" ? this.remember?.stat : null;
+    return [
+      skillName,
+      stat ? game.i18n.localize(`swnr.stat.short.${stat}`) : null,
+      this.remember?.burst ? game.i18n.localize("swnr.remember.burst") : null,
+      signedModifier(this.remember?.modifier),
+    ].filter(Boolean).join(" · ");
+  }
+
+  async forgetRemembered({ notify = true } = {}) {
+    await this.parent.update({ "system.remember": this.constructor.forgottenRemember() });
+    if (notify) {
+      ui.notifications?.info(
+        game.i18n.format("swnr.remember.forgotten", { name: this.parent.name })
+      );
     }
   }
 
@@ -623,34 +664,30 @@ export default class SWNWeapon extends SWNBaseGearItem {
       statName = secStatName;
     }
 
+    // A weapon set to "ask" for its stat quick-rolls with the remembered
+    // stat; older remembered weapons without one fall through to the dialog.
+    const quickStatName = statName === "ask" ? this.remember?.stat : statName;
+
     // Set to not ask and just roll
-    if (!shiftKey && this.remember && this.remember.use) {
-      const stat = actor.system["stats"]?.[statName] || {
+    if (!shiftKey && this.rememberActive && quickStatName) {
+      const stat = actor.system["stats"]?.[quickStatName] || {
         mod: 0,
       };
 
       const skill = actor.getEmbeddedDocument(
         "Item",
-        this.skill
+        this.rememberedSkill
       );
       let skillMod = -2;
       if (skill) {
         skillMod = skill?.system.rank < 0 ? -2 : skill.system.rank;
       } else {
         ui.notifications?.info("No skill found, using -2. Unsetting remember.");
-        await this.parent.update({
-          system: {
-            remember: {
-              use: false,
-              burst: false,
-              modifier: 0,
-            },
-          }
-        });
+        await this.forgetRemembered({ notify: false });
       }
 
       if (actor?.type == "character") {
-        dmgBonus = this.skillBoostsDamage ? skill.system.rank : 0;
+        dmgBonus = this.skillBoostsDamage ? (skill?.system.rank ?? 0) : 0;
       }
       return this.rollAttack(
         dmgBonus,
@@ -661,15 +698,23 @@ export default class SWNWeapon extends SWNBaseGearItem {
       );
     }
 
+    // Pre-fill the dialog with the remembered settings (shift+click on a
+    // remembered weapon), otherwise with the weapon's own defaults.
+    const remembered = this.rememberActive;
     const dialogData = {
       actor: actor,
       weapon: this,
       skills: actor.itemTypes.skill,
       statName: statName,
-      skill: this.skill,
+      selectedStat: remembered ? this.remember.stat : null,
+      skill: remembered ? this.rememberedSkill : this.skill,
+      modifier: remembered ? this.remember.modifier : 0,
+      burstChecked: burstFireHasAmmo && (!remembered || this.remember.burst),
       burstFireHasAmmo,
       canSuppress,
       stats: actor.system.stats,
+      allowRemember: rememberEnabled() && actor.type == "character",
+      rememberChecked: remembered,
     };
     const template = "systems/swnr/templates/dialogs/roll-attack.hbs";
     const html = await foundry.applications.handlebars.renderTemplate(template, dialogData);
@@ -713,6 +758,11 @@ export default class SWNWeapon extends SWNBaseGearItem {
       ) {
         statName = secStatName;
       }
+      // "ask" weapons use the stat picked in the dialog.
+      const askedStat = statName === "ask" ? button.form.elements.stat?.value : null;
+      if (askedStat) {
+        statName = askedStat;
+      }
 
       const stat = actor.system.stats?.[statName] || {
         mod: 0,
@@ -733,18 +783,21 @@ export default class SWNWeapon extends SWNBaseGearItem {
         }
       }
       // If remember is checked, set the skill and data
-      const remember = (button.form.elements.remember?.checked) ? true : false;
-      if (remember) {
+      // Unchecked on a remembered weapon: forget. (No checkbox for NPCs or
+      // when the world disables the feature.)
+      const rememberBox = button.form.elements.remember;
+      if (rememberBox?.checked) {
         await this.parent.update({
-          system: {
-            remember: {
-              use: true,
-              burst: burstFire,
-              modifier: modifier,
-            },
+          "system.remember": {
+            use: true,
+            burst: burstFire,
+            modifier: modifier,
             skill: skillId,
+            stat: askedStat,
           },
         });
+      } else if (rememberBox && this.remember?.use) {
+        await this.forgetRemembered();
       }
 
       // Suppressive fire is a distinct resolution (auto-hit, Evasion save, half damage).

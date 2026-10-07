@@ -164,6 +164,21 @@ export const registerSettings = function () {
     default: "off",
   });
 
+  game.settings.register("swnr", "rememberRollSettings", {
+    name: "swnr.settings.rememberRollSettings",
+    hint: "swnr.settings.rememberRollSettingsHint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    // Badges and dialogs read this at render time.
+    onChange: () => {
+      for (const app of foundry.applications.instances.values()) {
+        if (app.document?.documentName === "Actor") app.render();
+      }
+    },
+  });
+
   game.settings.register("swnr", "showAccess", {
     name: "swnr.settings.showAccess",
     hint: "swnr.settings.showAccessHint",

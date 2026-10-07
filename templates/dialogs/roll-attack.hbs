@@ -1,62 +1,53 @@
-<form class="flex">
+<form class="swnr-roll-dialog">
   <input type="hidden" name="actorId" value="{{actor._id}}">
-  <div class="flex flex-col">
-    <div class="flex flexrow p-2 gap-2">
-      {{#if (and weapon.ammo.burst (ne 'none' weapon.ammo.type)) }}
-      <div class="flex flex-col ">
-        <label for="burstFire">{{localize 'swnr.weapon.burst'}}: </label>
-        <input type="checkbox" name="burstFire" id="burstFire" {{checked burstFireHasAmmo}}>
-      </div>
-      {{/if}}
-      {{#if canSuppress}}
-      <div class="flex flex-col ">
-        <label for="suppress">{{localize 'swnr.weapon.suppress.checkbox'}}: </label>
-        <input type="checkbox" name="suppress" id="suppress">
-      </div>
-      {{/if}}
-      {{#if (eq actor.type 'character')}}
-      <div class="flex flex-col">
-        <label for="skill">{{localize 'swnr.sheet.skill'}}: </label>
-        <select name="skill"  required > 
-          {{selectOptions (getSkillChoices skills true) selected=weapon.skill localize=true}}
-        </select>
-      </div>
-      {{else}}
-      {{!-- <div class="flex flex-col">
-        <label for="skilled">{{localize 'swnr.npc.skilled-with-weapon'}}:</label>
-        <input type="checkbox" name="skilled" id="skilled" />
-      </div> --}}
-      {{/if}}
-      <div class="flex flex-col">
-        <label for="modifier">{{localize 'swnr.chat.modifier'}}: </label>
-        <input name="modifier" type="number" step="1" value="0" />
-      </div>
-    </div>
-    <div class="flex flexrow">
-      
-      {{#if (eq 'ask' statName)}}
-        <div class="flex flex-col">
-          <label for="stat">{{localize 'swnr.sheet.stats'}}: </label>
-          <select name="stat">
-          {{#each stats as |box name |}}
-          <option value="{{name}}">
-            {{localize (concat "swnr.stat.long." name)}}: 
-            {{numberFormat box.mod decimals=0 sign=true}}
-          </option>
-          {{/each}}
-          </select>
-        </div>
-      {{else}}
-        <input type="hidden" name="statName" value="{{statName}}">
-      {{/if}}
-      {{#if (eq actor.type 'character')}}
-        <div class="flex flexrow">
-            {{!-- <label for="remember"> --}}
-            {{localize 'swnr.weapon.remember'}}: 
-            {{!-- </label> --}}
-            <input type="checkbox" name="remember" id="remember">
-        </div> 
-      {{/if}}
-    </div>  
+
+  {{#if (eq actor.type 'character')}}
+  <div class="form-group">
+    <label for="skill">{{localize 'swnr.sheet.skill'}}</label>
+    <select name="skill" id="skill" required>
+      {{selectOptions (getSkillChoices skills true) selected=skill localize=true}}
+    </select>
   </div>
+  {{/if}}
+
+  {{#if (eq 'ask' statName)}}
+  <div class="form-group">
+    <label for="stat">{{localize 'swnr.sheet.stats'}}</label>
+    <select name="stat" id="stat">
+      {{#each stats as |box name|}}
+      <option value="{{name}}" {{#if (eq name @root.selectedStat)}}selected{{/if}}>
+        {{localize (concat "swnr.stat.long." name)}}: {{numberFormat box.mod decimals=0 sign=true}}
+      </option>
+      {{/each}}
+    </select>
+  </div>
+  {{else}}
+  <input type="hidden" name="statName" value="{{statName}}">
+  {{/if}}
+
+  <div class="form-group">
+    <label for="modifier">{{localize 'swnr.chat.modifier'}}</label>
+    <input name="modifier" id="modifier" type="number" step="1" value="{{modifier}}">
+  </div>
+
+  {{#if (and weapon.ammo.burst (ne 'none' weapon.ammo.type))}}
+  <div class="form-group">
+    <label for="burstFire">{{localize 'swnr.weapon.burst'}}</label>
+    <input type="checkbox" name="burstFire" id="burstFire" {{checked burstChecked}}>
+  </div>
+  {{/if}}
+
+  {{#if canSuppress}}
+  <div class="form-group">
+    <label for="suppress">{{localize 'swnr.weapon.suppress.checkbox'}}</label>
+    <input type="checkbox" name="suppress" id="suppress">
+  </div>
+  {{/if}}
+
+  {{#if allowRemember}}
+  <div class="form-group">
+    <label for="remember">{{localize 'swnr.weapon.remember'}}</label>
+    <input type="checkbox" name="remember" id="remember" {{checked rememberChecked}}>
+  </div>
+  {{/if}}
 </form>

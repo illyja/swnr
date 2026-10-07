@@ -4,6 +4,12 @@
     <div class="flex-shrink">
       {{item.name}}
       {{numberFormat item.system.rank decimals=0 sign=true}}
+      {{#if item.system.rememberActive}}
+      <span class="remembered-badge" data-action="forgetRemembered"
+        data-tooltip="{{localize 'swnr.remember.badge' summary=item.system.rememberSummary}}">
+        <i class="fas fa-thumbtack"></i>
+      </span>
+      {{/if}}
     </div>
   </a>
 

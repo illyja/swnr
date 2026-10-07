@@ -1747,6 +1747,21 @@
   color: var(--accent-color);
   text-decoration: underline;
 }
+.swnr .swnr .remembered-badge {
+  margin-left: 0.35em;
+  font-size: 0.8em;
+  opacity: 0.7;
+  cursor: pointer;
+  color: var(--accent-color);
+}
+.swnr .swnr .remembered-badge:hover {
+  opacity: 1;
+}
+.swnr .swnr .remembered-summary {
+  margin-left: 0.5em;
+  font-size: 0.85em;
+  opacity: 0.8;
+}
 .swnr .effects-header {
   height: 28px;
   margin: 2px 0;

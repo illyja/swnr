@@ -50,7 +50,6 @@ This document tracks known issues in the codebase that should be considered when
 - **#158**: Faction sheet automation functionality
 - **#145**: NPC's do not pick up armour item AC when equipped
 - **#143**: Custom Saving Throws
-- **#125**: Weapon sheet should show summary of remembered settings
 - **#121**: Add description toggling for items
 - **#120**: Add a Languages Section
 

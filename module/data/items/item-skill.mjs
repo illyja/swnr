@@ -1,6 +1,7 @@
 import SWNItemBase from './base-item.mjs';
 import SWNShared from '../shared.mjs';
 import { getChatMessageMode } from '../../helpers/utils.mjs';
+import { rememberEnabled, signedModifier } from '../../helpers/remember.mjs';
 
 export default class SWNSkill extends SWNItemBase {
   static LOCALIZATION_PREFIXES = [
@@ -43,11 +44,54 @@ export default class SWNSkill extends SWNItemBase {
         nullable: false,
         initial: 0,
       }),
+      // Remembered stat/pool are kept here rather than overwriting
+      // defaultStat/pool, so forgetting restores the skill's own defaults.
+      // Null falls back to defaultStat/pool (older remembered skills).
+      stat: SWNShared.nullableString(),
+      pool: SWNShared.nullableString(),
     });
-    
+
     schema.stats = SWNShared.stringChoices("dex", CONFIG.SWN.stats);
 
     return schema;
+  }
+
+  /** The `system.remember` value for a skill with nothing remembered. */
+  static forgottenRemember() {
+    return { use: false, modifier: 0, stat: null, pool: null };
+  }
+
+  /** Remembered settings are set and the world allows them. */
+  get rememberActive() {
+    return !!this.remember?.use && rememberEnabled();
+  }
+
+  get rememberedStat() {
+    return this.remember?.stat ?? this.defaultStat;
+  }
+
+  get rememberedPool() {
+    return this.remember?.pool ?? this.pool;
+  }
+
+  /** Human-readable summary, e.g. "INT · 2D6 · +2". */
+  get rememberSummary() {
+    const stat = this.rememberedStat;
+    const pool = this.rememberedPool;
+    return [
+      stat === "ask" ? game.i18n.localize("swnr.sheet.ask") : game.i18n.localize(`swnr.stat.short.${stat}`),
+      game.i18n.localize(CONFIG.SWN.pool[pool] ?? pool),
+      signedModifier(this.remember?.modifier),
+    ].join(" · ");
+  }
+
+  async forgetRemembered({ notify = true } = {}) {
+    await this.parent.update({ "system.remember": this.constructor.forgottenRemember() });
+    if (notify) {
+      ui.notifications?.info(
+        game.i18n.format("swnr.remember.forgotten", { name: this.parent.name })
+      );
+    }
   }
 
   async rollSkill(
@@ -106,10 +150,10 @@ export default class SWNSkill extends SWNItemBase {
     }
     const skillName = item.name;
     // Set to not ask and just roll
-    if (!shiftKey && this.remember && this.remember.use) {
+    if (!shiftKey && this.rememberActive) {
       const modifier = this.remember.modifier;
-      const defaultStat = this.defaultStat;
-      const dice = this.pool;
+      const defaultStat = this.rememberedStat;
+      const dice = this.rememberedPool;
       const skillRank = this.rank;
       if (defaultStat == "ask" || dice == "ask") {
         ui.notifications?.info(
@@ -135,18 +179,24 @@ export default class SWNSkill extends SWNItemBase {
       }
     }
 
-    const modifier =
-      this.remember && this.remember.modifier
-        ? this.remember.modifier
-        : 0;
+    // Pre-fill the dialog with the remembered settings (shift+click on a
+    // remembered skill), otherwise with the skill's own defaults.
+    const remembered = this.rememberActive;
+    const modifier = remembered ? this.remember.modifier : 0;
+    const selectedStat = remembered ? this.rememberedStat : this.defaultStat;
+    const selectedPool = remembered ? this.rememberedPool : this.pool;
     const title = `${game.i18n.localize("swnr.chat.skillCheck")}: ${skillName}`;
     const dialogData = {
       title: title,
       skillName: skillName,
       skill: item,
       modifier,
+      selectedStat,
+      selectedPool: selectedPool === "ask" ? "2d6" : selectedPool,
       pool: CONFIG.SWN.pool,
-      stats: actor.system.stats
+      stats: actor.system.stats,
+      allowRemember: rememberEnabled(),
+      rememberChecked: remembered,
     };
 
     const content = await foundry.applications.handlebars.renderTemplate(template, dialogData);
@@ -177,19 +227,20 @@ export default class SWNSkill extends SWNItemBase {
         "swnr.stat.short." + statShortNameForm
       );
 
-      // If remember is checked, set the skill and data
-      const remember = button.form.elements.remember?.checked;
-      if (remember) {
+      // Checked: remember these settings. Unchecked on a remembered skill:
+      // forget them. (No checkbox when the world disables the feature.)
+      const rememberBox = button.form.elements.remember;
+      if (rememberBox?.checked) {
         await this.parent.update({
-          system: {
-            remember: {
-              use: true,
-              modifier: Number(modifier),
-            },
-            defaultStat: statShortNameForm,
+          "system.remember": {
+            use: true,
+            modifier: Number(modifier),
+            stat: statShortNameForm,
             pool: dice,
           },
         });
+      } else if (rememberBox && this.remember?.use) {
+        await this.forgetRemembered();
       }
 
       this.rollSkill(
@@ -205,10 +256,9 @@ export default class SWNSkill extends SWNItemBase {
     const _resp = await foundry.applications.api.DialogV2.prompt(
       {
         window: {title: title},
-        modal: true,
+        modal: false,
         rejectClose: false,
-        content,
-        ok: {
+        content,        ok: {
             label: game.i18n.localize("swnr.chat.roll"),
             callback: _doRoll,
         },

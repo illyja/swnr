@@ -33,7 +33,15 @@
             <img src="{{item.img}}" title="{{item.name}}" width="24" height="24" />
           </a>
         </div>
-        <div>{{item.name}}</div>
+        <div>
+          {{item.name}}
+          {{#if item.system.rememberActive}}
+          <span class="remembered-badge" data-action="forgetRemembered"
+            data-tooltip="{{localize 'swnr.remember.badge' summary=item.system.rememberSummary}}">
+            <i class="fas fa-thumbtack"></i>
+          </span>
+          {{/if}}
+        </div>
       </div>
 
       <!-- Damage Column -->

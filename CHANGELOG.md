@@ -5,6 +5,19 @@ All notable changes to the Systems Without Number Redux (SWNR) system for Foundr
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+- Remembered roll settings (the "Remember these settings" checkbox on skill and attack dialogs) are easier to see and undo:
+  - Skills and weapons with remembered settings show a pin on the character sheet. Hover it for a summary; click it to forget.
+  - Shift+click on a skill opens its roll dialog again. The sheet passed the wrong value, so remembered skills could not be bypassed.
+  - Shift+click on a remembered skill or weapon opens the roll dialog pre-filled with the remembered settings and with "Remember these settings" already ticked. Untick it and roll to forget them.
+  - Remembering no longer overwrites the skill's Default Stat and Dice Pool or the weapon's skill, so forgetting returns to the item's own defaults. Skills remembered before this change keep the defaults that were overwritten at the time.
+  - Fixed the attack dialog ignoring the Stats choice for weapons whose stat is "ask"; they always rolled with +0. The chosen stat is now used and is part of the remembered settings.
+  - Tidied the attack and skill dialog layouts: one labelled field per row, in matching order.
+  - The skill roll dialog is no longer modal, matching the attack dialog, so the sheet and canvas stay usable while it is open.
+  - The character sheet's header menu has "Clear Remembered Rolls", which resets every skill and weapon on the actor.
+  - A new world setting, "Allow Remembered Roll Settings", turns the feature off.
+  - The skill and weapon item sheets show a summary of the remembered settings (#125).
+
 ## [2.3.3] 2026-09-05 AWN Compendium and fixes
 - Fix on attack roll failing if first attribute was ask and second was set.
 - Weapon attack bonus accepts a dice formula or an annotated number (e.g. `1d4`, `2[cyberarm]`) instead of a plain number. Existing values are converted automatically. (Thanks @pandanielxd)

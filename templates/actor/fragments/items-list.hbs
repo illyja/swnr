@@ -246,6 +246,12 @@
                 <span data-action="toggleItemDescription" data-item-id="{{item.id}}" style="cursor: pointer;">
                   {{item.name}}
                 </span>
+                {{#if item.system.rememberActive}}
+                <span class="remembered-badge" data-action="forgetRemembered"
+                  data-tooltip="{{localize 'swnr.remember.badge' summary=item.system.rememberSummary}}">
+                  <i class="fas fa-thumbtack"></i>
+                </span>
+                {{/if}}
                 {{#if (eq item.type "armor")}}
                   {{#if (ne item.system.soak.max 0)}}
                     ({{item.system.soak.value}}/{{item.system.soak.max}})

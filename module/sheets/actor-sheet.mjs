@@ -3,6 +3,7 @@ import { getGameSettings } from '../helpers/register-settings.mjs';
 import { headerFieldWidget, groupFieldWidget } from '../helpers/handlebar.mjs';
 import { initSkills, initCompendSkills, calcMod, chatMode } from '../helpers/utils.mjs';
 import { SWNBaseSheet } from './base-sheet.mjs';
+import { clearAllRemembered } from '../helpers/remember.mjs';
 
 
 const { api, sheets } = foundry.applications;
@@ -49,6 +50,8 @@ export class SWNActorSheet extends SWNBaseSheet {
       rollSave: this._onRollSave,
       loadSkills: this._loadSkills,
       rollSkill: this._onSkillRoll,
+      forgetRemembered: this._onForgetRemembered,
+      clearAllRemembered: this._onClearAllRemembered,
       skillUp: this._onSkillUp,
       hitDice: this._onHitDice,
       toggleArmor: this._toggleArmor,
@@ -76,7 +79,15 @@ export class SWNActorSheet extends SWNBaseSheet {
       submitOnChange: true,
     },
     window: {
-      resizable: true
+      resizable: true,
+      controls: [
+        {
+          action: 'clearAllRemembered',
+          icon: 'fas fa-thumbtack',
+          label: 'swnr.remember.clearAll',
+          ownership: 'OWNER',
+        },
+      ],
     }
   };
 
@@ -837,7 +848,30 @@ export class SWNActorSheet extends SWNBaseSheet {
     event.preventDefault();
     const skillID = target.dataset.itemId;
     const skill = this.actor.items.get(skillID);
-    skill.roll(event.shiftKey);
+    // Item#roll reads event.shiftKey itself, so pass the event through.
+    skill.roll(event);
+  }
+
+  /**
+   * Forget an item's remembered roll settings (the pin badge on skills/weapons).
+   */
+  static async _onForgetRemembered(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    const item = this._getEmbeddedDocument(target);
+    await item?.system.forgetRemembered?.();
+  }
+
+  /**
+   * Clear remembered roll settings on every skill and weapon (header control).
+   */
+  static async _onClearAllRemembered(_event, _target) {
+    const count = await clearAllRemembered(this.actor);
+    ui.notifications?.info(
+      count
+        ? game.i18n.format("swnr.remember.clearedAll", { count })
+        : game.i18n.localize("swnr.remember.noneRemembered")
+    );
   }
 
   static async _onSkillUp(event, target) {
