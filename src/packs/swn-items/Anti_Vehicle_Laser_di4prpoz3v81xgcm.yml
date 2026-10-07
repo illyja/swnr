@@ -20,7 +20,7 @@ system:
     longReload: false
     max: 15
     suppress: false
-    type: special
+    type: typeBPower
     value: 15
     current: null
   cost: 10000

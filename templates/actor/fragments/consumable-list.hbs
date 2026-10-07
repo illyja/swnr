@@ -125,6 +125,11 @@
               <a class="item-control" data-action="removeUse"  data-item-id="{{item._id}}">
                 <i class="fas fa-minus"></i>
               </a>
+              {{#if (and (eq item.system.uses.consumable "magazine") (gt item.system.uses.max 0) (lt item.system.uses.value item.system.uses.max))}}
+                <a class="item-control" data-action="loadMagazine" title="{{localize 'swnr.weapon.loadMagazine'}}">
+                  <i class="fas fa-download"></i>
+                </a>
+              {{/if}}
           </div>
 
           <!-- Controls (edit/delete/reload) -->
@@ -138,6 +143,11 @@
                 >
                   <i class="fas fa-retweet"></i>
                 </a>
+                {{#if (and (ne item.system.ammo.type "infinite") (or item.system.ammo.loadedMagazine (gt item.system.ammo.value 0)))}}
+                  <a class="item-control item-unload" data-action="unload" title="{{ localize "swnr.weapon.unload"}}">
+                    <i class="fas fa-eject"></i>
+                  </a>
+                {{/if}}
               {{/if}}
             {{/if}}
             <a

@@ -603,6 +603,7 @@ export class SWNItemSheet extends api.HandlebarsApplicationMixin(
     // Get the related items for the owning parent (if any) for ammo
     const item = this.item;
     let ammo = [];
+    let loadedMagazine = null;
     // Skill choices are built here rather than in the template because the label
     // combines two fields (name and rank), which selectOptions cannot compose.
     const skills = {};
@@ -616,14 +617,23 @@ export class SWNItemSheet extends api.HandlebarsApplicationMixin(
       const ammoType = item.system.ammo?.type;
       //console.log(`Ammo type for ${item.name} is ${ammoType}`);
       if (ammoType && ammoType !== 'none') {
+        // Loose-ammo sources only; magazines are loaded via the reload swap.
         ammo = parent.items.filter(
-          (i) => i.type === 'item' &&  i.system.uses.consumable !== "none" && i.system.uses.ammo === ammoType
+          (i) => i.type === 'item' && ["count", "bundle"].includes(i.system.uses.consumable)
+            && i.system.uses.ammo === ammoType
         );
+      }
+      // Magazine currently loaded into the weapon (magazine mode), if any.
+      const magId = item.system.ammo?.loadedMagazine;
+      if (magId) {
+        const mag = parent.items.get(magId);
+        if (mag && mag.system.uses?.consumable === "magazine") loadedMagazine = mag;
       }
     }
     const related = {
       ammo: ammo,
       skills: skills,
+      loadedMagazine: loadedMagazine,
     };
     return related;
   }

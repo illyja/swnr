@@ -37,6 +37,8 @@ export class SWNActorSheet extends SWNBaseSheet {
       toggleEffect: this._toggleEffect,
       roll: this._onRoll,
       reload: this._onReload,
+      loadMagazine: this._onLoadMagazine,
+      unload: this._onUnload,
       creditChange: this._onCreditChange,
       addCurrency: this._onAddCurrency,
       editCurrency: this._onEditCurrency,

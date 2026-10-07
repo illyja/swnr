@@ -69,6 +69,13 @@
             {{localize 'swnr.weapon.ammotNotFound'}}
           {{/if}}
         </div>
+        {{#if related.loadedMagazine}}
+        <div>{{localize 'swnr.weapon.loadedMagazine'}}: </div>
+        <div class="grid-span-3">
+          {{related.loadedMagazine.name}}
+          ({{related.loadedMagazine.system.uses.value}}/{{related.loadedMagazine.system.uses.max}})
+        </div>
+        {{/if}}
         {{/if}}
 
         <div class="resource grid-span-2">
@@ -85,6 +92,15 @@
         <div class="resource grid-span-2"> </div>
         {{/if}}
       </div>
+      {{#if (and (ne system.ammo.type "none") (ne system.ammo.type "infinite"))}}
+      <div class="grid grid-4col" style="margin-top:0px;">
+        <div class="resource grid-span-4">
+          <label class="resource-label">{{localize 'swnr.weapon.magClass'}}</label>
+          <input type="text" name="system.ammo.magClass" value="{{system.ammo.magClass}}"
+            placeholder="{{localize 'swnr.weapon.magClassHint'}}" />
+        </div>
+      </div>
+      {{/if}}
       <div class="grid-span-4 thin-bar flex flexrow">
         {{formGroup systemFields.ammo.fields.longReload value=system.ammo.longReload localize=true widget=checkWidget}}
         {{formGroup systemFields.ammo.fields.suppress value=system.ammo.suppress localize=true widget=checkWidget}}

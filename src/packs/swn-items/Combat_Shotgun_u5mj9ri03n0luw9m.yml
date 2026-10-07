@@ -16,6 +16,7 @@ _id: u5mj9ri03n0luw9m
 system:
   ab: 0
   ammo:
+    magClass: combat-shotgun
     burst: true
     longReload: false
     max: 12

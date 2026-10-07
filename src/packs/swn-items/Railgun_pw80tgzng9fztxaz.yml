@@ -16,11 +16,12 @@ _id: pw80tgzng9fztxaz
 system:
   ab: 0
   ammo:
+    magClass: railgun
     burst: false
     longReload: false
     max: 20
     suppress: true
-    type: special
+    type: ammo
     value: 20
     current: null
   cost: 8000

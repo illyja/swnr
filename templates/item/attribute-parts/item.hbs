@@ -15,10 +15,20 @@
         {{formInput systemFields.uses.fields.value value=system.uses.value localize=true}} /
         {{formInput systemFields.uses.fields.max value=system.uses.max localize=true}}
       </div>
+      {{!-- Magazines are always kept when empty, so the empties fields don't apply. --}}
+      {{#unless (eq system.uses.consumable "magazine")}}
       <div class="grid-span-2">
         {{formGroup systemFields.uses.fields.emptyQuantity value=system.uses.emptyQuantity localize=true}}
       </div>
       {{formGroup systemFields.uses.fields.keepEmpty value=system.uses.keepEmpty localize=true widget=checkWidget}}
+      {{/unless}}
+      {{#if (eq system.uses.consumable "magazine")}}
+      <div class="grid-span-2">
+        <label class='resource-label'>{{localize 'swnr.weapon.magClass'}}</label>
+        <input type="text" name="system.uses.magClass" value="{{system.uses.magClass}}"
+          placeholder="{{localize 'swnr.weapon.magClassHint'}}" />
+      </div>
+      {{/if}}
     {{/if}}
   </div>
 

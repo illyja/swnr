@@ -24,7 +24,7 @@ system:
     max: 10
     value: 10
     ammo: ammo
-    consumable: bundle
+    consumable: count
     keepEmpty: false
     emptyQuantity: 0
   bundle:

@@ -20,7 +20,7 @@ system:
     longReload: false
     max: 10
     suppress: true
-    type: special
+    type: missile
     value: 10
     current: null
   cost: 20000

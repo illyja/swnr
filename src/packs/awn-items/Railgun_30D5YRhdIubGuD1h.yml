@@ -51,6 +51,7 @@ system:
     ac: 10
   ab: 0
   ammo:
+    magClass: railgun
     longReload: false
     suppress: true
     type: ammo

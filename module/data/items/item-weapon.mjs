@@ -29,7 +29,17 @@ export default class SWNWeapon extends SWNBaseGearItem {
       max: SWNShared.requiredNumber(10),
       value: SWNShared.requiredNumber(10),
       burst: new fields.BooleanField({ initial: false }),
-      current: new fields.DocumentIdField({ readonly: false })
+      // Preferred loose/bundle ammo source item (legacy "pour rounds" reload).
+      current: new fields.DocumentIdField({ readonly: false }),
+      // Magazine mode: the item id of the magazine currently loaded in the
+      // weapon. When set, that item is the source of truth for loaded rounds
+      // and capacity (see prepareDerivedData / consumeAmmo). Null = the weapon
+      // uses loose/abstract ammo tracked directly on ammo.value.
+      loadedMagazine: new fields.DocumentIdField({ readonly: false }),
+      // Magazine compatibility key. When set, only magazines whose
+      // uses.magClass matches (or is blank) can be loaded — per-weapon coupling.
+      // Blank = accepts any magazine of the right ammo type (freeform).
+      magClass: SWNShared.nullableString()
     });
     schema.range = new fields.SchemaField({
       normal: SWNShared.requiredNumber(1),
@@ -78,6 +88,76 @@ export default class SWNWeapon extends SWNBaseGearItem {
     return data;
   }
 
+  /**
+   * The magazine item currently loaded into this weapon, or null if the weapon
+   * is not in magazine mode (loose/abstract ammo). Resolves against the owning
+   * actor and validates the item is still a magazine-consumable.
+   * @returns {Item|null}
+   */
+  get loadedMagazineItem() {
+    const magId = this.ammo?.loadedMagazine;
+    if (!magId) return null;
+    const mag = this.parent?.actor?.items?.get(magId);
+    if (!mag || mag.system?.uses?.consumable !== "magazine") return null;
+    return mag;
+  }
+
+  /**
+   * True when this weapon only holds charge through a loaded power cell: an
+   * energy weapon (Type A/B cell ammo) carried by a character or NPC.
+   * Vehicle-mounted weapons keep abstract charge.
+   * @returns {boolean}
+   */
+  get requiresCell() {
+    const actorType = this.parent?.actor?.type;
+    return CONFIG.SWN.powerCellAmmoTypes.includes(this.ammo?.type)
+      && (actorType === "character" || actorType === "npc");
+  }
+
+  prepareDerivedData() {
+    super.prepareDerivedData();
+    // In magazine mode the loaded magazine item owns the loaded-round count and
+    // capacity. Mirror them onto ammo.value/ammo.max so every existing getter,
+    // template, and chat card keeps reading ammo.value unchanged. In loose /
+    // abstract mode (no loaded magazine) ammo.value stays authoritative —
+    // except for energy weapons, which have no charge without a loaded cell.
+    const mag = this.loadedMagazineItem;
+    if (mag) {
+      this.ammo.value = mag.system.uses.value;
+      this.ammo.max = mag.system.uses.max;
+    } else if (this.requiresCell) {
+      this.ammo.value = 0;
+    }
+  }
+
+  /** Notification text for a weapon that can't fire for lack of ammo. */
+  get outOfAmmoMessage() {
+    const name = this.parent?.name ?? "";
+    return this.requiresCell && !this.loadedMagazineItem
+      ? game.i18n.format("swnr.weapon.needsCell", { name })
+      : `Your ${name} is out of ammo!`;
+  }
+
+  /**
+   * Spend ammunition for a shot/burst/suppression. In magazine mode this
+   * decrements the loaded magazine item (so a swapped-out magazine retains its
+   * remaining rounds); otherwise it decrements the weapon's own ammo.value.
+   * No-op for none/infinite ammo types.
+   * @param {number} rounds
+   */
+  async consumeAmmo(rounds) {
+    if (!rounds || rounds <= 0) return;
+    if (this.ammo.type === "none" || this.ammo.type === "infinite") return;
+    const mag = this.loadedMagazineItem;
+    if (mag) {
+      const newVal = Math.max(0, mag.system.uses.value - rounds);
+      await mag.update({ "system.uses.value": newVal });
+    } else {
+      const newVal = Math.max(0, this.ammo.value - rounds);
+      await this.parent.update({ "system.ammo.value": newVal });
+    }
+  }
+
   get canBurstFire() {
     return (
       this.ammo.burst &&
@@ -117,7 +197,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
       throw new Error(message);
     }
     if (!this.hasAmmo) {
-      ui.notifications?.error(`Your ${item.name} is out of ammo!`);
+      ui.notifications?.error(this.outOfAmmoMessage);
       return;
     }
     if (
@@ -314,13 +394,10 @@ export default class SWNWeapon extends SWNBaseGearItem {
       this.ammo.type !== "none" &&
       this.ammo.type !== "infinite"
     ) {
-      const newAmmoTotal = this.ammo.value - 1 - burstFire;
-      await this.parent.update({
-        system: {
-          "ammo.value": newAmmoTotal
-        }
-      });
-      if (newAmmoTotal === 0)
+      const spent = 1 + burstFire;
+      const projected = Math.max(0, this.ammo.value - spent);
+      await this.consumeAmmo(spent);
+      if (projected === 0)
         ui.notifications?.warn(`Your ${item.name} is now out of ammo!`);
     }
     const chatContent = await foundry.applications.handlebars.renderTemplate(template, dialogData);
@@ -402,7 +479,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
       return;
     }
     if (!this.hasAmmo) {
-      ui.notifications?.error(`Your ${item.name} is out of ammo!`);
+      ui.notifications?.error(this.outOfAmmoMessage);
       return;
     }
 
@@ -438,9 +515,9 @@ export default class SWNWeapon extends SWNBaseGearItem {
     // Spend double ammo.
     const ammoSpent = finiteAmmo ? SUPPRESS_COST : 0;
     if (finiteAmmo) {
-      const newAmmoTotal = Math.max(0, this.ammo.value - SUPPRESS_COST);
-      await item.update({ system: { "ammo.value": newAmmoTotal } });
-      if (newAmmoTotal === 0) ui.notifications?.warn(`Your ${item.name} is now out of ammo!`);
+      const projected = Math.max(0, this.ammo.value - SUPPRESS_COST);
+      await this.consumeAmmo(SUPPRESS_COST);
+      if (projected === 0) ui.notifications?.warn(`Your ${item.name} is now out of ammo!`);
     }
 
     const template = "systems/swnr/templates/chat/suppress-fire.hbs";
@@ -494,7 +571,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
       return;
     }
     if (!this.hasAmmo) {
-      ui.notifications?.error(`Your ${item.name} is out of ammo!`);
+      ui.notifications?.error(this.outOfAmmoMessage);
       return;
     }
 

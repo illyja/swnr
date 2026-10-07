@@ -1,0 +1,52 @@
+name: Railgun Slug Cassette
+type: item
+img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
+folder: C0XZGs5XpoD55XU7
+flags: {}
+_stats:
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+  coreVersion: '13.346'
+  systemId: swnr
+  systemVersion: 2.3.1
+  createdTime: 1754265737000
+  modifiedTime: 1754265737000
+  lastModifiedBy: swnrMagTooling00
+system:
+  cost: 20
+  description: >-
+    A cassette of twenty ferrous slugs for a railgun. Load it with the reload control; a swapped-out cassette keeps its remaining slugs and can be reloaded.
+  encumbrance: 1
+  noEncReadied: false
+  favorite: false
+  quantity: 1
+  bundle:
+    bundled: false
+  tl: null
+  location: stowed
+  quality: stock
+  container:
+    isContainer: false
+    isOpen: true
+    capacity:
+      max: 0
+      value: 0
+  roll:
+    diceNum: 1
+    diceSize: d20
+    diceBonus: +@str.mod+ceil(@lvl / 2)
+  uses:
+    magClass: railgun
+    max: 20
+    value: 20
+    emptyQuantity: 0
+    consumable: magazine
+    ammo: ammo
+    keepEmpty: true
+effects: []
+ownership:
+  default: 0
+_id: nM0Jh2ppSo2QRLsZ
+sort: 20000
+_key: '!items!nM0Jh2ppSo2QRLsZ'

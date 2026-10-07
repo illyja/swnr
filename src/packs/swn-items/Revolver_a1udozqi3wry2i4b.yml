@@ -16,6 +16,7 @@ _id: a1udozqi3wry2i4b
 system:
   ab: 0
   ammo:
+    magClass: revolver
     burst: false
     longReload: false
     max: 6

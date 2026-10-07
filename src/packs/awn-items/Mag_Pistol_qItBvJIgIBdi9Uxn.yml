@@ -30,9 +30,10 @@ system:
     ac: 10
   ab: 0
   ammo:
+    magClass: mag-pistol
     longReload: false
     suppress: false
-    type: typeAPower
+    type: ammo
     max: 6
     value: 6
     burst: false

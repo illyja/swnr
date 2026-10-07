@@ -55,12 +55,17 @@ SWN.itemConsumableTypes = {
   none: 'swnr.item.consumable.none',
   count: 'swnr.item.consumable.count',
   bundle: 'swnr.item.consumable.bundle',
+  magazine: 'swnr.item.consumable.magazine',
 }
 
 SWN.fuelTypes = {
   fuel: 'swnr.item.consumable.fuel',
   typeBPower: 'swnr.ammo.typeBPower',
 };
+
+// Ammo types that are power cells: on characters and NPCs, a weapon using one
+// only holds charge through a loaded cell (see SWNWeapon.prepareDerivedData).
+SWN.powerCellAmmoTypes = ["typeAPower", "typeBPower"];
 
 SWN.ammoTypes = {
   none: 'swnr.ammo.none',
