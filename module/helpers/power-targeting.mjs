@@ -967,7 +967,10 @@ export async function rerollSharedRoll(message, which) {
     };
   } else if (kind === "weapon" && which === "shock") {
     // Weapon shock: re-roll only the shock die; only shock-hit rows change.
-    const shockFormula = item.system.shock.dmg + " + @stat" + (item.system.skillBoostsShock ? " + @damageBonus" : "");
+    // Prefer the formula the attack actually rolled (NPCs can carry their own shock);
+    // fall back to rebuilding it for cards made before it was stored.
+    const shockFormula = f.shockFormula
+      ?? item.system.shock.dmg + " + @stat" + (item.system.skillBoostsShock ? " + @damageBonus" : "");
     const roll = safeRoll(shockFormula, f.attackRollData ?? {});
     await roll.roll();
     const newShock = roll.total;

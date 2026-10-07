@@ -320,11 +320,10 @@ export default class SWNWeapon extends SWNBaseGearItem {
     // Placeholder for shock damage
     let shock_content = null;
     let shockAC = null;
+    let shockFormula = null;
     let shock_roll = null;
     // Show shock damage
     if (game.settings.get("swnr", "addShockMessage")) {
-      let shockFormula = null;
-
       const npcShock = actor?.type === "npc" ? actor.system.attacks.shock : null;
       if (npcShock?.dmg && npcShock.dmg !== "0") {
         shockFormula = `${npcShock.dmg}`;
@@ -342,9 +341,9 @@ export default class SWNWeapon extends SWNBaseGearItem {
 
       if (shockFormula) {
         if (actor?.type == "npc" && actor.system.attacks.shock.ac) {
-          shockAC = actor.system.attacks.shock.ac;
+          shockAC = Number(actor.system.attacks.shock.ac);
         } else {
-          shockAC = this.shock.ac;
+          shockAC = Number(this.shock.ac);
         }
         shock_content = `Shock Damage  AC ${shockAC}`;
 
@@ -452,6 +451,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
           attackRollData,
           mainDamage: damageRoll?.total ?? 0,
           shockDamage: shockDamageValue,
+          shockFormula,
           shockAC: shockConfigured ? shockAC : null,
           traumaTriggered,
           traumaDamage: traumaDamageValue,
