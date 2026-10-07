@@ -20,7 +20,8 @@ system:
     longReload: false
     max: 0
     suppress: false
-    type: special
+    type: ammo
+    caliber: demo-charge
     value: 0
     current: null
   cost: 250

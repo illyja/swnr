@@ -81,13 +81,32 @@ export function profileFromSource(source) {
 }
 
 /**
- * Caliber compatibility. A box with no caliber fits anything (generic rounds);
- * a box with a caliber only fits a receiver (weapon or magazine) of that caliber.
- * @param {string|null} boxCaliber
- * @param {string|null} receiverCaliber
+ * Caliber compatibility: strict. Rounds or a magazine fit a weapon or
+ * magazine of exactly the same caliber, and blank only matches blank. Blank is
+ * the plain "standard rounds" caliber most guns and ammo use.
+ * @param {string|null} a
+ * @param {string|null} b
  */
-export function caliberFits(boxCaliber, receiverCaliber) {
-  return !boxCaliber || boxCaliber === receiverCaliber;
+export function caliberFits(a, b) {
+  return (a?.trim() || null) === (b?.trim() || null);
+}
+
+/**
+ * Migrate a pre-caliber ammo type (typeAPower, missile, ...) on raw source
+ * data: the family moves into the caliber (unless one is already set) and the
+ * type becomes plain limited ammo. Safe on partial data.
+ * @param {object|undefined} obj    the object holding the fields
+ * @param {string} typeKey          e.g. "type" (weapon ammo) or "ammo" (item uses)
+ * @param {string|null} caliberKey  null where the schema has no caliber
+ * @returns {string|null} the legacy type that was migrated, if any
+ */
+export function migrateLegacyAmmoType(obj, typeKey, caliberKey) {
+  const legacy = obj?.[typeKey];
+  const caliber = CONFIG.SWN.legacyAmmoCalibers[legacy];
+  if (!caliber) return null;
+  obj[typeKey] = "ammo";
+  if (caliberKey && !obj[caliberKey]) obj[caliberKey] = caliber;
+  return legacy;
 }
 
 /** Calibers on an item: rounds/magazines keep it in uses, weapons in ammo. */

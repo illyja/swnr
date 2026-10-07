@@ -18,7 +18,8 @@ system:
     burst: false
     max: 4
     suppress: false
-    type: special
+    type: ammo
+    caliber: drug-dose
     value: 4
     longReload: false
     current: null

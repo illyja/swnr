@@ -119,6 +119,9 @@
         {{formGroup systemFields.ammo.fields.longReload value=system.ammo.longReload localize=true widget=checkWidget}}
         {{formGroup systemFields.ammo.fields.suppress value=system.ammo.suppress localize=true widget=checkWidget}}
         {{formGroup systemFields.ammo.fields.burst value=system.ammo.burst localize=true widget=checkWidget}}
+        {{#if (and (ne system.ammo.type "none") (ne system.ammo.type "infinite"))}}
+        {{formGroup systemFields.ammo.fields.magazineOnly value=system.ammo.magazineOnly localize=true widget=checkWidget}}
+        {{/if}}
       </div>
     </div><!-- AMMO Properties  -->
     <div class="resource-group grid-span-2">

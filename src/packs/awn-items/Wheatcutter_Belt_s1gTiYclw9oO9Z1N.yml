@@ -41,7 +41,8 @@ system:
   ammo:
     longReload: false
     suppress: false
-    type: special
+    type: ammo
+    caliber: wheatcutter
     max: 5
     value: 5
     burst: false

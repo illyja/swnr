@@ -19,7 +19,8 @@ system:
   uses:
     max: 0
     value: 0
-    ammo: typeAPower
+    ammo: ammo
+    caliber: type-a-cell
     consumable: magazine
     keepEmpty: true
     emptyQuantity: 0

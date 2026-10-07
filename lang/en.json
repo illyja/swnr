@@ -601,7 +601,7 @@
           "ammo": {
             "label": "Ammo",
             "type": {
-              "label": "Ammo Type"
+              "label": "Ammo Use"
             },
             "max": {
               "label": "Max"
@@ -768,10 +768,14 @@
           "ammo": {
             "label": "Ammo",
             "type": {
-              "label": "Ammo Type"
+              "label": "Ammo Use"
             },
             "longReload": {
               "label": "Long Reload"
+            },
+            "magazineOnly": {
+              "label": "Magazine-fed only",
+              "hint": "Holds ammo only through a loaded magazine or power cell: no loose rounds, and empty without one (energy weapons)."
             },
             "burst": {
               "label": "Burst Fire"
@@ -1038,7 +1042,7 @@
           },
           "ammo": {
             "type": {
-              "label": "Ammo Type"
+              "label": "Ammo Use"
             },
             "max": {
               "label": "Ammo Maximum"
@@ -2088,6 +2092,10 @@
     },
     "ammo": {
       "ammo": "Standard Ammo",
+      "limited": "Limited",
+      "notAmmo": "Not ammo",
+      "isAmmo": "Ammunition",
+      "standard": "Rounds",
       "missile": "Missiles",
       "none": "None",
       "special": "Specialty",
@@ -2192,13 +2200,13 @@
       "emptyAmmoRemoved": "{name} is empty and was removed.",
       "unload": "Unload weapon",
       "alreadyEmpty": "{name} is already empty.",
-      "needsCell": "{name} has no power cell loaded. Reload it with a cell.",
-      "noCellAvailable": "No charged power cell available for {name}. Shift+click to load a new one.",
+      "needsCell": "{name} has no magazine or power cell loaded. Reload it with one.",
+      "noCellAvailable": "No loaded magazine or charged power cell available for {name}. Shift+click to load a new one.",
       "looseRoundsName": "{type} (loose)",
       "magClass": "Magazine Class",
       "magClassHint": "e.g. combat-rifle (blank fits any)",
       "caliber": "Caliber",
-      "caliberHint": "e.g. shotgun (blank = fits any caliber)",
+      "caliberHint": "e.g. shotgun, type-a-cell (must match exactly; blank = standard rounds)",
       "noLoadedMagazine": "No compatible loaded magazine available for this weapon. Load rounds into a matching magazine, or shift+click to bypass.",
       "burst": "Use Burst Fire",
       "skillAddDamage": "Skill adds to damage",

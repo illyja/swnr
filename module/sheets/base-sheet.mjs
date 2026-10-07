@@ -41,12 +41,12 @@ function looseRoundsFor(actor, ammoType, excludeId = null, { variant, caliber } 
  * @returns {Promise<{drawn: number, used: {name: string, n: number}[]}>}
  */
 async function drawLooseRounds(actor, ammoType, needed, preferred = null) {
+  // Same caliber and variant as the preferred box: never pad slugs with
+  // standard shells, or shotgun shells with rifle rounds.
   const variantFilter = preferred
     ? { variant: profileKey(preferred.system.ammoProfile), caliber: preferred.system.uses.caliber ?? null }
     : {};
-  // Same caliber exactly: don't pad shotgun shells with generic rounds or vice versa.
-  const others = looseRoundsFor(actor, ammoType, preferred?.id ?? null, variantFilter)
-    .filter((i) => !preferred || (i.system.uses.caliber ?? null) === (preferred.system.uses.caliber ?? null));
+  const others = looseRoundsFor(actor, ammoType, preferred?.id ?? null, variantFilter);
   const order = preferred ? [preferred, ...others] : others;
   let drawn = 0;
   const used = [];
@@ -74,7 +74,7 @@ const describeRounds = (used) => used.map((u) => `${u.n} from ${u.name}`).join("
  * @param {number} n
  * @param {string|null} preferredId
  * @param {object|null} profile  ammo profile of the rounds being returned
- * @param {string|null} caliber  caliber for a newly created box
+ * @param {string|null} caliber  caliber of the rounds being returned
  * @returns {Promise<{placed: {name: string, n: number, id: string}[]}>}
  */
 async function returnLooseRounds(actor, ammoType, n, preferredId = null, profile = null, caliber = null) {
@@ -83,6 +83,7 @@ async function returnLooseRounds(actor, ammoType, n, preferredId = null, profile
     && i.system.uses?.consumable === 'count'
     && i.system.uses?.ammo === ammoType
     && i.system.quantity > 0
+    && caliberFits(i.system.uses.caliber, caliber)
     && profileKey(i.system.ammoProfile) === variant);
   const partial = sameType
     .filter((i) => i.system.uses.value < i.system.uses.max)
@@ -105,7 +106,7 @@ async function returnLooseRounds(actor, ammoType, n, preferredId = null, profile
       data.system.quantity = 1;
       data.system.uses.emptyQuantity = 0;
     } else {
-      const label = (variant && profile?.label) || game.i18n.localize(CONFIG.SWN.ammoTypes[ammoType] ?? ammoType);
+      const label = (variant && profile?.label) || caliberLabel(caliber) || game.i18n.localize("swnr.ammo.standard");
       data = {
         name: game.i18n.format("swnr.weapon.looseRoundsName", { type: label }),
         type: "item",
@@ -114,7 +115,7 @@ async function returnLooseRounds(actor, ammoType, n, preferredId = null, profile
           encumbrance: 0, location: "stowed", quantity: 1,
           uses: {
             consumable: "count", ammo: ammoType, value: left, max: left, keepEmpty: false, emptyQuantity: 0,
-            caliber: variant ? caliber : null,
+            caliber: caliber || null,
           },
           ammoProfile: variant ? foundry.utils.deepClone(profile) : blankProfile(),
         },
@@ -150,25 +151,43 @@ async function confirmVariantSwap(holderName, rounds, oldLabel, newLabel) {
 }
 
 /**
- * Create a new power cell item on an actor, styled after an existing cell of
- * the same type when there is one.
+ * Display name for a caliber: the old ammo-type names for the calibers that
+ * replaced them ("Type A Power Cell"), otherwise the caliber itself.
+ * @param {string|null} caliber
+ * @returns {string|null}
+ */
+function caliberLabel(caliber) {
+  if (!caliber) return null;
+  const legacy = Object.entries(CONFIG.SWN.legacyAmmoCalibers).find(([, c]) => c === caliber)?.[0];
+  return legacy ? game.i18n.localize(`swnr.ammo.${legacy}`) : caliber.charAt(0).toUpperCase() + caliber.slice(1);
+}
+
+/**
+ * Create a new full magazine / power cell for a magazine-only weapon, styled
+ * after an existing magazine of the same caliber when there is one.
  * @param {Actor} actor
- * @param {string} ammoType  typeAPower / typeBPower
- * @param {number} value     charge
- * @param {number} max       capacity (the weapon's shots per cell)
+ * @param {Item} weapon      the weapon it's for (caliber, magClass)
+ * @param {number} value     rounds / charge
+ * @param {number} max       capacity (the weapon's shots per magazine)
  * @returns {Promise<Item>}
  */
-async function createCell(actor, ammoType, value, max) {
+async function createCell(actor, weapon, value, max) {
+  const { type: ammoType, caliber = null, magClass = null } = weapon.system.ammo;
   const like = actor.items.find((i) => i.type === 'item'
-    && i.system.uses?.consumable === 'magazine' && i.system.uses?.ammo === ammoType);
+    && i.system.uses?.consumable === 'magazine'
+    && caliberFits(i.system.uses?.caliber, caliber)
+    && (!magClass || !i.system.uses?.magClass || i.system.uses.magClass === magClass));
   const [cell] = await actor.createEmbeddedDocuments("Item", [{
-    name: like?.name ?? game.i18n.localize(CONFIG.SWN.ammoTypes[ammoType]),
+    name: like?.name ?? caliberLabel(caliber) ?? game.i18n.localize("swnr.item.consumable.magazine"),
     type: "item",
     img: like?.img ?? "systems/swnr/assets/icons/game-icons.net/item-icons/battery-75.svg",
     system: {
       encumbrance: like?.system.encumbrance ?? 1, cost: like?.system.cost ?? 0,
       location: "stowed", quantity: 1,
-      uses: { consumable: "magazine", ammo: ammoType, value, max, keepEmpty: true, emptyQuantity: 0 },
+      uses: {
+        consumable: "magazine", ammo: ammoType, value, max, keepEmpty: true, emptyQuantity: 0,
+        caliber, magClass: like?.system.uses?.magClass ?? null,
+      },
     },
   }]);
   return cell;
@@ -742,7 +761,7 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
         } else if (item.system.requiresCell) {
           // Energy weapons only hold charge through a cell: conjure a full one
           // and load it.
-          const cell = await createCell(this.actor, ammoType, ammoMax, ammoMax);
+          const cell = await createCell(this.actor, item, ammoMax, ammoMax);
           await item.update({
             "system.ammo.loadedMagazine": cell.id,
             "system.ammo.max": ammoMax,

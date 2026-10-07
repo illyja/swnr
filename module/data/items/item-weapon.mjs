@@ -3,7 +3,7 @@ import SWNShared from '../shared.mjs';
 import { applyChatMessageMode, getChatMessageMode } from '../../helpers/utils.mjs';
 import { rememberEnabled, signedModifier } from '../../helpers/remember.mjs';
 import { resolveWeaponTargets, resolveSuppressionTargets, applyTargetResults } from '../../helpers/power-targeting.mjs';
-import { defineAmmoProfileSchema, isBlankProfile } from '../../helpers/ammo-profile.mjs';
+import { defineAmmoProfileSchema, isBlankProfile, migrateLegacyAmmoType } from '../../helpers/ammo-profile.mjs';
 
 export default class SWNWeapon extends SWNBaseGearItem {
   static LOCALIZATION_PREFIXES = [
@@ -42,9 +42,12 @@ export default class SWNWeapon extends SWNBaseGearItem {
       // uses.magClass matches (or is blank) can be loaded — per-weapon coupling.
       // Blank = accepts any magazine of the right ammo type (freeform).
       magClass: SWNShared.nullableString(),
-      // Ammo family (e.g. "shotgun"): rounds tagged with a caliber only load
-      // into weapons of the same caliber.
+      // What ammunition fits (e.g. "shotgun", "type-a-cell"). Must match the
+      // rounds' / magazine's caliber exactly; blank = standard rounds.
       caliber: SWNShared.nullableString(),
+      // Holds ammo only through a loaded magazine/cell: no loose rounds, and
+      // empty without one (energy weapons). Characters and NPCs only.
+      magazineOnly: new fields.BooleanField({ initial: false }),
       // Loose-ammo mode only: the variant of the rounds poured into ammo.value.
       // In magazine mode the loaded magazine's own ammoProfile applies instead.
       profile: defineAmmoProfileSchema(),
@@ -98,6 +101,13 @@ export default class SWNWeapon extends SWNBaseGearItem {
       data.stat = "ask";
     }
 
+    // Pre-caliber ammo types: the family becomes the caliber, and power-cell
+    // weapons keep their "charge only from a loaded cell" rule.
+    const legacy = migrateLegacyAmmoType(data.ammo, "type", "caliber");
+    if (CONFIG.SWN.legacyCellAmmoTypes.includes(legacy) && data.ammo.magazineOnly === undefined) {
+      data.ammo.magazineOnly = true;
+    }
+
     return data;
   }
 
@@ -116,14 +126,15 @@ export default class SWNWeapon extends SWNBaseGearItem {
   }
 
   /**
-   * True when this weapon only holds charge through a loaded power cell: an
-   * energy weapon (Type A/B cell ammo) carried by a character or NPC.
-   * Vehicle-mounted weapons keep abstract charge.
+   * True when this weapon only holds ammo through a loaded magazine or cell
+   * (the magazineOnly flag, e.g. energy weapons) and is carried by a character
+   * or NPC. Vehicle-mounted weapons keep abstract charge.
    * @returns {boolean}
    */
   get requiresCell() {
     const actorType = this.parent?.actor?.type;
-    return CONFIG.SWN.powerCellAmmoTypes.includes(this.ammo?.type)
+    return !!this.ammo?.magazineOnly
+      && this.ammo.type !== "none" && this.ammo.type !== "infinite"
       && (actorType === "character" || actorType === "npc");
   }
 

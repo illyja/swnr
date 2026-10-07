@@ -20,7 +20,8 @@ system:
     longReload: false
     max: 1
     suppress: false
-    type: special
+    type: ammo
+    caliber: rocket
     value: 1
     current: null
   cost: 4000

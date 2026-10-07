@@ -15,10 +15,12 @@ _stats:
   lastModifiedBy: lKC5x4Yf023Bizof
 system:
   ammo:
+    magClass: heavy-machine-gun
     burst: false
     max: 10
     suppress: true
-    type: special
+    type: ammo
+    caliber: heavy-machine-gun
     value: 10
     longReload: false
     current: null

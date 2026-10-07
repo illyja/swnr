@@ -37,6 +37,7 @@ system:
     diceSize: d20
     diceBonus: +@str.mod+ceil(@lvl / 2)
   uses:
+    caliber: anti-materiel
     magClass: anti-material-rifle
     max: 5
     value: 5

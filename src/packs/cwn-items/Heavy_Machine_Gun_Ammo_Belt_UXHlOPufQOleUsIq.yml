@@ -37,6 +37,7 @@ system:
     diceSize: d20
     diceBonus: +@str.mod+ceil(@lvl / 2)
   uses:
+    caliber: heavy-machine-gun
     magClass: heavy-machine-gun
     max: 10
     value: 10

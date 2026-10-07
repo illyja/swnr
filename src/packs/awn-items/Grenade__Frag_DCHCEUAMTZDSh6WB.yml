@@ -40,7 +40,8 @@ system:
   ammo:
     longReload: false
     suppress: false
-    type: special
+    type: ammo
+    caliber: grenade
     max: 1
     value: 1
     burst: false

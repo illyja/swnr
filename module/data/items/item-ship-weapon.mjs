@@ -1,6 +1,7 @@
 import SWNVehicleItemBase from './base-ship.mjs';
 import SWNShared from '../shared.mjs';
 import { applyChatMessageMode, getChatMessageMode } from '../../helpers/utils.mjs';
+import { migrateLegacyAmmoType } from '../../helpers/ammo-profile.mjs';
 
 export default class SWNShipWeapon extends SWNVehicleItemBase {
   static LOCALIZATION_PREFIXES = [
@@ -46,6 +47,9 @@ export default class SWNShipWeapon extends SWNVehicleItemBase {
     if (!(data.stat in CONFIG.SWN.stats)) {
       data.stat = "ask";
     }
+
+    // Pre-caliber ammo types: ship weapons only care about limited/unlimited.
+    migrateLegacyAmmoType(data.ammo, "type", null);
 
     return data;
   }

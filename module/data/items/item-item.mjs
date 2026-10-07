@@ -1,6 +1,6 @@
 import SWNBaseGearItem from './base-gear-item.mjs';
 import SWNShared from '../shared.mjs';
-import { defineAmmoProfileSchema } from '../../helpers/ammo-profile.mjs';
+import { defineAmmoProfileSchema, migrateLegacyAmmoType } from '../../helpers/ammo-profile.mjs';
 
 export default class SWNItemItem extends SWNBaseGearItem {
   static LOCALIZATION_PREFIXES = [
@@ -39,12 +39,12 @@ export default class SWNItemItem extends SWNBaseGearItem {
       value: SWNShared.requiredNumber(1),
       emptyQuantity: SWNShared.requiredNumber(0),
       consumable: SWNShared.stringChoices('none', CONFIG.SWN.itemConsumableTypes),
-      ammo: SWNShared.stringChoices("none", CONFIG.SWN.ammoTypes),
+      ammo: SWNShared.stringChoices("none", CONFIG.SWN.itemAmmoTypes),
       // Magazine compatibility key (see weapon ammo.magClass). Blank = a
       // universal magazine that fits any weapon of the matching ammo type.
       magClass: SWNShared.nullableString(),
-      // Ammo family, e.g. "shotgun". Rounds with a caliber only load into a
-      // weapon or magazine of that caliber; blank rounds fit anything.
+      // What these rounds / this magazine fit, e.g. "shotgun", "type-a-cell".
+      // Must match the weapon's or magazine's caliber exactly; blank = standard rounds.
       caliber: SWNShared.nullableString(),
       keepEmpty: new fields.BooleanField({
         initial: true,
@@ -56,6 +56,13 @@ export default class SWNItemItem extends SWNBaseGearItem {
     // magazine it records the variant currently loaded (copied on load).
     schema.ammoProfile = defineAmmoProfileSchema();
     return schema;
+  }
+
+  static migrateData(data) {
+    // Pre-caliber ammo types (power cells, missiles, ...) become calibers.
+    migrateLegacyAmmoType(data.uses, "ammo", "caliber");
+    if (data.uses?.ammo === "infinite") data.uses.ammo = "ammo";
+    return super.migrateData(data);
   }
 
   /**

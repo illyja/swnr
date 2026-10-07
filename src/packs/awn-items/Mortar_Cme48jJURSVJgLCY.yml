@@ -34,7 +34,8 @@ system:
   ammo:
     longReload: false
     suppress: false
-    type: special
+    type: ammo
+    caliber: mortar
     max: 1
     value: 1
     burst: false

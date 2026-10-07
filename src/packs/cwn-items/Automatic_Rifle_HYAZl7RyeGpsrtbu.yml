@@ -18,7 +18,8 @@ system:
     burst: false
     max: 10
     suppress: true
-    type: special
+    type: ammo
+    caliber: automatic-rifle
     value: 10
     longReload: false
     current: null
