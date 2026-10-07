@@ -1,0 +1,59 @@
+name: Discarding Sabot Shells
+type: item
+img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
+folder: 46CoCbby4mAAsP2Y
+flags: {}
+_stats:
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+  coreVersion: '13.346'
+  systemId: swnr
+  systemVersion: 2.3.2
+  createdTime: 1791331200000
+  modifiedTime: 1791331200000
+  lastModifiedBy: null
+system:
+  cost: 2
+  description: >-
+    (Homebrew) A sub-calibre penetrator in a sabot that falls away after
+    leaving the barrel. Damage 2d6, range 50/75 and -1 to hit.
+  favorite: false
+  quantity: 1
+  uses:
+    max: 10
+    value: 10
+    ammo: ammo
+    consumable: count
+    caliber: shotgun
+    keepEmpty: false
+    emptyQuantity: 0
+  ammoProfile:
+    label: Sabot
+    damage: 2d6
+    hitMod: -1
+    rangeNormal: 50
+    rangeMax: 75
+    traumaDie: ''
+    traumaRating: null
+    nonLethal: false
+    stoppedByAdvancedArmor: false
+  bundle:
+    bundled: false
+  encumbrance: 0
+  noEncReadied: false
+  tl: 3
+  location: stowed
+  quality: stock
+  container:
+    isContainer: false
+    isOpen: true
+    capacity:
+      max: 0
+      value: 0
+effects: []
+ownership:
+  default: 0
+_id: h6sND3xz76cd87QE
+sort: 100002
+_key: '!items!h6sND3xz76cd87QE'

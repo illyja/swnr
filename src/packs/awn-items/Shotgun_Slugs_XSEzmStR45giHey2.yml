@@ -1,0 +1,58 @@
+name: Shotgun Slugs
+type: item
+img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
+folder: 46CoCbby4mAAsP2Y
+flags: {}
+_stats:
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+  coreVersion: '13.346'
+  systemId: swnr
+  systemVersion: 2.3.2
+  createdTime: 1791331200000
+  modifiedTime: 1791331200000
+  lastModifiedBy: null
+system:
+  cost: 2
+  description: >-
+    Solid shotgun slugs. They double the shotgun's normal and maximum ranges (20/60) but decrease its damage by 1. Load them into a shotgun or its magazine.
+  favorite: false
+  quantity: 1
+  uses:
+    max: 10
+    value: 10
+    ammo: ammo
+    consumable: count
+    caliber: shotgun
+    keepEmpty: false
+    emptyQuantity: 0
+  ammoProfile:
+    label: Slugs
+    damage: '3d4-1'
+    hitMod: 0
+    rangeNormal: 20
+    rangeMax: 60
+    traumaDie: ''
+    traumaRating: null
+    nonLethal: false
+    stoppedByAdvancedArmor: false
+  bundle:
+    bundled: false
+  encumbrance: 0
+  noEncReadied: false
+  tl: 2
+  location: stowed
+  quality: stock
+  container:
+    isContainer: false
+    isOpen: true
+    capacity:
+      max: 0
+      value: 0
+effects: []
+ownership:
+  default: 0
+_id: XSEzmStR45giHey2
+sort: 100001
+_key: '!items!XSEzmStR45giHey2'
