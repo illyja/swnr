@@ -20,7 +20,7 @@ system:
     holds twice as much as a box magazine. Load it with the
     reload control; a swapped-out belt keeps its remaining rounds and can be
     relinked.
-  encumbrance: 1
+  encumbrance: 3
   noEncReadied: false
   favorite: false
   quantity: 1

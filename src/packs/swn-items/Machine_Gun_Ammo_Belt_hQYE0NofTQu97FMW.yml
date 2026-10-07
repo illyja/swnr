@@ -17,7 +17,7 @@ system:
   cost: 500
   description: >-
     A linked ammunition belt for heavy machine guns, holding 20 rounds of firing, twice a box magazine. Each round of firing eats 25 credits worth of projectile ammunition. Load it with the reload control; a swapped-out belt keeps its remaining rounds.
-  encumbrance: 1
+  encumbrance: 3
   noEncReadied: false
   favorite: false
   quantity: 1
