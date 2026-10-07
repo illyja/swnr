@@ -1,0 +1,60 @@
+name: Shotgun Slugs, 20 rounds
+type: item
+folder: rvD6mRxUC48bljtg
+flags: {}
+_stats:
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+  coreVersion: '13.346'
+  systemId: swnr
+  systemVersion: 2.3.2
+  createdTime: 1791331200000
+  modifiedTime: 1791331200000
+  lastModifiedBy: null
+_id: 1Lo2YoGGFjscSOES
+system:
+  favorite: false
+  uses:
+    max: 20
+    value: 20
+    ammo: ammo
+    consumable: count
+    caliber: shotgun
+    keepEmpty: false
+    emptyQuantity: 0
+  ammoProfile:
+    label: Slugs
+    damage: 2d6
+    hitMod: 0
+    rangeNormal: 50
+    rangeMax: 75
+    traumaDie: ''
+    traumaRating: null
+    nonLethal: false
+    stoppedByAdvancedArmor: false
+  quantity: 1
+  bundle:
+    amount: 3
+    bundled: false
+  cost: 10
+  description: >-
+    Solid slug rounds for shotguns. Slug rounds do 2d6 damage and have ranges
+    of 50/75 meters. Load them into a shotgun or its magazine.
+  encumbrance: 1
+  location: other
+  quality: stock
+  tl: 2
+  noEncReadied: false
+  container:
+    isContainer: false
+    isOpen: true
+    capacity:
+      max: 0
+      value: 0
+effects: []
+img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
+ownership:
+  default: 0
+sort: 0
+_key: '!items!1Lo2YoGGFjscSOES'

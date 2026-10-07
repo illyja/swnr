@@ -36,6 +36,7 @@ system:
     ac: 10
   ab: "0"
   ammo:
+    caliber: shotgun
     longReload: false
     suppress: false
     type: ammo

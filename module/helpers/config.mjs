@@ -63,19 +63,42 @@ SWN.fuelTypes = {
   typeBPower: 'swnr.ammo.typeBPower',
 };
 
-// Ammo types that are power cells: on characters and NPCs, a weapon using one
-// only holds charge through a loaded cell (see SWNWeapon.prepareDerivedData).
-SWN.powerCellAmmoTypes = ["typeAPower", "typeBPower"];
-
+// How a weapon uses ammunition: not at all, a limited supply that is spent
+// and reloaded, an unlimited one, or disposable -- the weapon itself is spent
+// when used (grenades, mines, one-shot rocket launchers). What *kind* of
+// ammunition fits is the caliber's job (see helpers/ammo-profile.mjs). The
+// limited key stays "ammo" so existing data needs no migration.
 SWN.ammoTypes = {
   none: 'swnr.ammo.none',
-  typeAPower: 'swnr.ammo.typeAPower',
-  typeBPower: 'swnr.ammo.typeBPower',
-  ammo: 'swnr.ammo.ammo',
-  missile: 'swnr.ammo.missile',
-  special: 'swnr.ammo.special',
+  ammo: 'swnr.ammo.limited',
+  infinite: 'swnr.ammo.infinite',
+  disposable: 'swnr.ammo.disposable',
+};
+
+// Ship/vehicle weapons: no disposable mode.
+SWN.shipAmmoTypes = {
+  none: 'swnr.ammo.none',
+  ammo: 'swnr.ammo.limited',
   infinite: 'swnr.ammo.infinite',
 };
+
+// Ammo items (rounds, magazines, cells) only need to say whether they are
+// ammunition; "unlimited" has no meaning for a box or a magazine.
+SWN.itemAmmoTypes = {
+  none: 'swnr.ammo.notAmmo',
+  ammo: 'swnr.ammo.isAmmo',
+};
+
+// Ammo types from before calibers existed, and the caliber each became.
+// Applied by the weapon / item / ship weapon migrateData.
+SWN.legacyAmmoCalibers = {
+  typeAPower: 'type-a-cell',
+  typeBPower: 'type-b-cell',
+  missile: 'missile',
+  special: 'special',
+};
+// Legacy power-cell types: weapons using them become magazine-only.
+SWN.legacyCellAmmoTypes = ['typeAPower', 'typeBPower'];
 
 SWN.programTypes = {
   verb: 'swnr.sheet.program.verb',

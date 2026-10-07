@@ -20,7 +20,8 @@ system:
     longReload: false
     max: 10
     suppress: true
-    type: missile
+    type: ammo
+    caliber: missile
     value: 10
     current: null
   cost: 20000

@@ -35,7 +35,7 @@ system:
     max: 2000
   stat: dex
   ammo:
-    type: missile
+    type: ammo
     max: 1
     value: 1
   trauma:

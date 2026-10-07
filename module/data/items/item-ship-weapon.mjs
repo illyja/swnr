@@ -1,6 +1,7 @@
 import SWNVehicleItemBase from './base-ship.mjs';
 import SWNShared from '../shared.mjs';
 import { applyChatMessageMode, getChatMessageMode } from '../../helpers/utils.mjs';
+import { migrateLegacyAmmoType } from '../../helpers/ammo-profile.mjs';
 
 export default class SWNShipWeapon extends SWNVehicleItemBase {
   static LOCALIZATION_PREFIXES = [
@@ -17,7 +18,7 @@ export default class SWNShipWeapon extends SWNVehicleItemBase {
     schema.hardpoint = SWNShared.requiredNumber(1);
     schema.qualities = SWNShared.requiredString("");
     schema.ammo = new fields.SchemaField({
-      type: SWNShared.stringChoices("none", CONFIG.SWN.ammoTypes),
+      type: SWNShared.stringChoices("none", CONFIG.SWN.shipAmmoTypes),
       max: SWNShared.requiredNumber(4),
       value: SWNShared.requiredNumber(4)
     });
@@ -46,6 +47,9 @@ export default class SWNShipWeapon extends SWNVehicleItemBase {
     if (!(data.stat in CONFIG.SWN.stats)) {
       data.stat = "ask";
     }
+
+    // Pre-caliber ammo types: ship weapons only care about limited/unlimited.
+    migrateLegacyAmmoType(data.ammo, "type", null);
 
     return data;
   }

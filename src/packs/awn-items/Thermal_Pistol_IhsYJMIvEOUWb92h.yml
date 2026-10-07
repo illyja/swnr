@@ -53,7 +53,9 @@ system:
   ammo:
     longReload: false
     suppress: false
-    type: typeAPower
+    type: ammo
+    caliber: type-a-cell
+    magazineOnly: true
     max: 5
     value: 5
     burst: false

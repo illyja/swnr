@@ -20,7 +20,8 @@ system:
     longReload: false
     max: 5
     suppress: false
-    type: special
+    type: ammo
+    caliber: wheatcutter
     value: 5
     current: null
   cost: 10000

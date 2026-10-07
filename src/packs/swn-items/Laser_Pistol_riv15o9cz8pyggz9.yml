@@ -20,7 +20,9 @@ system:
     longReload: false
     max: 10
     suppress: false
-    type: typeAPower
+    type: ammo
+    caliber: type-a-cell
+    magazineOnly: true
     value: 10
     current: null
   cost: 200

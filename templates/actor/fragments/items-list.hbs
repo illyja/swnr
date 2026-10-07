@@ -274,7 +274,7 @@
             {{!-- Single Rounds column if ammo != none --}}
             {{#if (eq item.type "weapon")}}
               <div class="item-rounds item-prop">
-                {{item.system.ammo.value}} / {{item.system.ammo.max}}
+                {{#if item.system.isDisposable}}&times;{{item.system.quantity}}{{else}}{{item.system.ammo.value}} / {{item.system.ammo.max}}{{/if}}
               </div>
             {{/if}}
 
@@ -288,7 +288,8 @@
             <!-- Damage/AC/Roll Formula (centered under header) -->
             <div class="item-formula item-prop">
               {{#if (eq ../type "weapon")}}
-                {{item.system.damage}}
+                {{item.system.effectiveDamage}}
+                {{#if item.system.ammoLabel}}<span class="ammo-variant-badge" data-tooltip="{{item.system.ammoLabel}}: {{item.system.effectiveRange.normal}}/{{item.system.effectiveRange.max}}">{{item.system.ammoLabel}}</span>{{/if}}
               {{else if (eq ../type "armor")}}
                 {{item.system.ac}}
               {{else}}
@@ -299,7 +300,7 @@
             <!-- Controls (edit/delete/reload) -->
             <div class="item-controls item-prop">
               {{#if (eq ../type "weapon")}}
-                {{#if (ne item.system.ammo.type "none")}}
+                {{#if item.system.reloadable}}
                   <a
                     class="item-control item-reload"
                     data-action="reload"

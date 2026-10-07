@@ -71,7 +71,7 @@ function _applyChatDamageOption(opt, target) {
   if (opt.isModified) {
     _openDamageModifierDialog(damage);
   } else {
-    applyHealthDrop(Math.floor(damage * opt.multiplier));
+    applyHealthDrop(Math.floor(damage * opt.multiplier), null, { nonLethal: !!opt.nonLethal });
   }
 }
 
@@ -91,6 +91,12 @@ export const addChatMessageContextOptions = function (html, options) {
       name: game.i18n.localize("swnr.chat.healthButtons.halfDamage"),
       icon: '<i class="fas fa-user-minus"></i>',
       multiplier: 0.5
+    },
+    {
+      name: game.i18n.localize("swnr.chat.healthButtons.nonLethalDamage"),
+      icon: '<i class="fas fa-face-dizzy"></i>',
+      multiplier: 1,
+      nonLethal: true
     },
     {
       name: game.i18n.localize("swnr.chat.healthButtons.fullHealing"),
@@ -360,6 +366,14 @@ export function _addHealthButtons(html) {
     .attr("title", game.i18n.localize("swnr.chat.healthButtons.fullDamage"))
     .append($("<i>").addClass("fas fa-user-minus"));
 
+  // Non-lethal: at 0 HP the target is knocked Unconscious instead of Defeated.
+  // Whether the hit really is non-lethal (no traumatic hit, no advanced armor)
+  // is left to the GM; the targeted pipeline decides it automatically.
+  const nonLethalButton = $("<button>")
+    .addClass("dice-total-nonLethal-btn chat-button-small")
+    .attr("title", game.i18n.localize("swnr.chat.healthButtons.nonLethalDamage"))
+    .append($("<i>").addClass("fas fa-face-dizzy"));
+
   const halfDamageButton = $("<button>")
     .addClass("dice-total-halfDamage-btn chat-button-small")
     .attr("title", game.i18n.localize("swnr.chat.healthButtons.halfDamage"))
@@ -381,6 +395,7 @@ export function _addHealthButtons(html) {
   btnContainer.append(fullDamageButton);
   btnContainer.append(fullDamageModifiedButton);
   btnContainer.append(halfDamageButton);
+  btnContainer.append(nonLethalButton);
   // btnContainer.append(doubleDamageButton);
   btnContainer.append(fullHealingButton);
   
@@ -403,6 +418,11 @@ export function _addHealthButtons(html) {
   halfDamageButton.on("click", (ev) => {
     ev.stopPropagation();
     applyHealthDrop(Math.floor(total * 0.5));
+  });
+
+  nonLethalButton.on("click", (ev) => {
+    ev.stopPropagation();
+    applyHealthDrop(total, null, { nonLethal: true });
   });
 
   // doubleDamageButton.click(ev => {
@@ -466,7 +486,7 @@ async function _onTargetApplyClick(event, message) {
   }
 }
 
-export async function applyHealthDrop(total, tokens = null) {
+export async function applyHealthDrop(total, tokens = null, options = {}) {
   if (total == 0) return; // Skip changes of 0
 
   const list = tokens ?? canvas?.tokens?.controlled;
@@ -479,7 +499,7 @@ export async function applyHealthDrop(total, tokens = null) {
   // );
 
   for (const t of list) {
-    await applyHealthDropToToken(t, total);
+    await applyHealthDropToToken(t, total, options);
   }
 }
 
@@ -491,9 +511,12 @@ export async function applyHealthDrop(total, tokens = null) {
  * and returning an undo snapshot of the values it changed.
  * @param {Token} t - a Token placeable
  * @param {number} total - signed amount (damage positive, heal negative)
+ * @param {object} [options]
+ * @param {boolean} [options.nonLethal] - at 0 HP the target is knocked
+ *   Unconscious instead of being marked Defeated
  * @returns {Promise<{tokenId:string, sceneId:string|null, actorId:string, snapshot:object}|null>}
  */
-export async function applyHealthDropToToken(t, total) {
+export async function applyHealthDropToToken(t, total, { nonLethal = false } = {}) {
   const actor = t.actor;
   let isDefeated = false;
 
@@ -510,6 +533,7 @@ export async function applyHealthDropToToken(t, total) {
       .map((i) => ({ itemId: i.id, value: i.system.soak.value })),
     baseSoak: actor.type === "npc" ? (actor.system.baseSoakTotal?.value ?? null) : null,
     defeated: t.combatant?.defeated ?? false,
+    unconscious: actor.statuses?.has?.("unconscious") ?? false,
     hackerId: null,
     hackerHealth: null,
     createdEffectIds: [],
@@ -596,7 +620,14 @@ export async function applyHealthDropToToken(t, total) {
       const fillColor = total < 0 ? "0x00FF00" : "0xFF0000";
       showValueChange(t, fillColor, total);
 
-      if (newHealth <= 0) {
+      if (newHealth <= 0 && nonLethal && total > 0) {
+        // Non-lethal damage knocks the target out rather than killing it.
+        // An already-defeated target stays defeated.
+        if (oldHealth > 0 && typeof actor.toggleStatusEffect === "function") {
+          await actor.toggleStatusEffect("unconscious", { overlay: true, active: true });
+        }
+        return done();
+      } else if (newHealth <= 0) {
         isDefeated = true;
       } else if (oldHealth <= 0) {
         // token was at <=0 and now is not
@@ -677,6 +708,9 @@ export async function _onDmgRollClick(event, message) {
     damageExplain: payload.damageExplain,
     traumaRollRender,
     traumaDamage,
+    ammoLabel: payload.ammoLabel ?? null,
+    // A traumatic hit makes non-lethal ammo lethal.
+    nonLethal: !!payload.nonLethal && !traumaDamage,
   };
   const damageRollContent = await foundry.applications.handlebars.renderTemplate(damageRollTemplate, damageRollData);
   const chatData = {

@@ -20,7 +20,7 @@ system:
     longReload: false
     max: 0
     suppress: false
-    type: special
+    type: disposable
     value: 0
     current: null
   cost: 250

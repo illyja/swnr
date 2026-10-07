@@ -19,7 +19,8 @@ system:
   uses:
     max: 1
     value: 1
-    ammo: missile
+    ammo: ammo
+    caliber: missile
     consumable: count
     keepEmpty: false
     emptyQuantity: 0

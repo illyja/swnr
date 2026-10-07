@@ -1,0 +1,58 @@
+name: Launcher Grenade, Smoke
+type: item
+img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
+folder: 46CoCbby4mAAsP2Y
+flags: {}
+_stats:
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+  coreVersion: '13.346'
+  systemId: swnr
+  systemVersion: 2.3.2
+  createdTime: 1791331200000
+  modifiedTime: 1791331200000
+  lastModifiedBy: null
+system:
+  cost: 10
+  description: >-
+    A grenade built to be fired from a grenade launcher; it cannot be thrown by hand. It costs and functions the same as its regular equivalent. Smoke: an opaque cloud that blocks sight; no damage.
+  favorite: false
+  quantity: 1
+  uses:
+    max: 1
+    value: 1
+    ammo: ammo
+    consumable: count
+    caliber: launcher-grenade
+    keepEmpty: false
+    emptyQuantity: 0
+  ammoProfile:
+    label: Smoke
+    damage: '0'
+    hitMod: 0
+    rangeNormal: null
+    rangeMax: null
+    traumaDie: ''
+    traumaRating: null
+    nonLethal: true
+    stoppedByAdvancedArmor: false
+  bundle:
+    bundled: false
+  encumbrance: 1
+  noEncReadied: false
+  tl: 3
+  location: stowed
+  quality: stock
+  container:
+    isContainer: false
+    isOpen: true
+    capacity:
+      max: 0
+      value: 0
+effects: []
+ownership:
+  default: 0
+_id: JnNLdtrL1JtkXZSH
+sort: 100014
+_key: '!items!JnNLdtrL1JtkXZSH'

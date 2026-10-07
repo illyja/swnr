@@ -55,7 +55,7 @@ system:
     ac: 10
   ab: 0
   ammo:
-    magClass: heavy-machine-gun
+    caliber: machine-gun
     longReload: false
     suppress: true
     type: ammo

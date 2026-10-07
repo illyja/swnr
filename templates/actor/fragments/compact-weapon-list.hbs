@@ -46,15 +46,18 @@
 
       <!-- Damage Column -->
       <div class="flex-group-center item-prop">
-        {{item.system.damage}}
-         {{#if (and item.system.ammo (ne item.system.ammo.type "none") (ne item.system.ammo.type "infinite"))}}
+        {{item.system.effectiveDamage}}
+        {{#if item.system.ammoLabel}}<span class="ammo-variant-badge" data-tooltip="{{item.system.ammoLabel}}: {{item.system.effectiveRange.normal}}/{{item.system.effectiveRange.max}}">{{item.system.ammoLabel}}</span>{{/if}}
+         {{#if item.system.tracksAmmo}}
            / {{item.system.ammo.value}}/{{item.system.ammo.max}}
+         {{else if item.system.isDisposable}}
+           / &times;{{item.system.quantity}}
          {{/if}}
       </div>
 
       <!-- Controls -->
       <div class="flex-group-right item-controls-small">
-        {{#if (and (eq item.type "weapon") (ne item.system.ammo.type "none"))}}
+        {{#if (and (eq item.type "weapon") item.system.reloadable)}}
           <a class="item-control item-reload" data-action="reload" title="{{localize 'swnr.sheet.reload-item'}}">
             <i class="fas fa-retweet"></i>
           </a>

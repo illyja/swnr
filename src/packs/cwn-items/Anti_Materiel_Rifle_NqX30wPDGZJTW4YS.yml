@@ -15,10 +15,12 @@ _stats:
   lastModifiedBy: lKC5x4Yf023Bizof
 system:
   ammo:
+    magClass: anti-material-rifle
     burst: false
     max: 5
     suppress: false
-    type: special
+    type: ammo
+    caliber: anti-materiel
     value: 5
     longReload: false
     current: null

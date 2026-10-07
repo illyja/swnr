@@ -40,7 +40,7 @@ system:
   ammo:
     longReload: false
     suppress: false
-    type: special
+    type: disposable
     max: 1
     value: 1
     burst: false

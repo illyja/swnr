@@ -1,0 +1,59 @@
+name: Shotgun Shells
+type: item
+img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
+folder: HG41JQWj742oQIK1
+flags: {}
+_stats:
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+  coreVersion: '13.346'
+  systemId: swnr
+  systemVersion: 2.3.2
+  createdTime: 1791331200000
+  modifiedTime: 1791331200000
+  lastModifiedBy: lKC5x4Yf023Bizof
+system:
+  cost: 1
+  description: >-
+    Standard buckshot shells for shotguns and their magazines. Shotguns take
+    only shotgun-caliber ammunition.
+  favorite: false
+  quantity: 1
+  uses:
+    max: 10
+    value: 10
+    ammo: ammo
+    consumable: count
+    caliber: shotgun
+    keepEmpty: false
+    emptyQuantity: 0
+  ammoProfile:
+    label: ''
+    damage: ''
+    hitMod: 0
+    rangeNormal: null
+    rangeMax: null
+    traumaDie: ''
+    traumaRating: null
+    nonLethal: false
+    stoppedByAdvancedArmor: false
+  bundle:
+    bundled: false
+  encumbrance: 0
+  noEncReadied: false
+  tl: null
+  location: stowed
+  quality: stock
+  container:
+    isContainer: false
+    isOpen: true
+    capacity:
+      max: 0
+      value: 0
+effects: []
+ownership:
+  default: 0
+_id: QcJRfnZZZCivmek8
+sort: 100000
+_key: '!items!QcJRfnZZZCivmek8'

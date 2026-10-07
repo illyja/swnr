@@ -32,7 +32,7 @@ system:
   tl: 4
   ammo:
     max: 4
-    type: special
+    type: ammo
     value: 4
   favorite: false
   destroyed: false

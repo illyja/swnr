@@ -46,9 +46,10 @@ system:
     max: 1
     value: 1
     emptyQuantity: 0
-    consumable: none
-    ammo: none
-    keepEmpty: true
+    consumable: count
+    ammo: ammo
+    keepEmpty: false
+    caliber: drug-dose
 effects: []
 ownership:
   default: 0

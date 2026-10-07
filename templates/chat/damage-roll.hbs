@@ -1,4 +1,10 @@
 <div class="chat-card item-card" data-actor-id="{{actor._id}}" data-item-id="{{weapon._id}}">
+  {{#if (or ammoLabel nonLethal)}}
+  <div class="ammo-variant-tags">
+    {{#if ammoLabel}}<span class="ammo-variant-badge">{{ammoLabel}}</span>{{/if}}
+    {{#if nonLethal}}<span class="ammo-variant-badge non-lethal">{{localize 'swnr.ammoProfile.nonLethalTag'}}</span>{{/if}}
+  </div>
+  {{/if}}
 
   <span>{{localize 'swnr.weapon.damage'}}:</span>
   <span title="{{ damageExplain }}" class="roll roll-damage">{{{ damage }}}</span>

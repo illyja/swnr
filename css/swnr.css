@@ -854,6 +854,25 @@
   opacity: 0.8;
 }
 
+.ammo-variant-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.2rem 0;
+}
+
+.ammo-variant-tags .ammo-variant-badge {
+  padding: 0 0.35em;
+  font-size: 0.85em;
+  border: 1px solid #6a7f9a;
+  border-radius: 3px;
+}
+
+.ammo-variant-tags .ammo-variant-badge.non-lethal {
+  border-color: #4a8a5a;
+  color: #3d7a4c;
+}
+
 /* Styles limited to swnr sheets */
 .swnr {
   /* Consumption UI Styling */
@@ -1761,6 +1780,18 @@
   margin-left: 0.5em;
   font-size: 0.85em;
   opacity: 0.8;
+}
+.swnr .swnr .ammo-variant-badge {
+  margin-left: 0.35em;
+  padding: 0 0.3em;
+  font-size: 0.8em;
+  border: 1px solid var(--accent-color);
+  border-radius: 3px;
+  color: var(--accent-color);
+  white-space: nowrap;
+}
+.swnr .swnr .ammo-variant-summary {
+  font-size: 0.9em;
 }
 .swnr .effects-header {
   height: 28px;

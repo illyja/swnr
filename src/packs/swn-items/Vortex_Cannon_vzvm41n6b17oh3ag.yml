@@ -20,7 +20,9 @@ system:
     longReload: false
     max: 5
     suppress: false
-    type: typeBPower
+    type: ammo
+    caliber: type-b-cell
+    magazineOnly: true
     value: 5
     current: null
   cost: 75000

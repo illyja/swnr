@@ -15,6 +15,7 @@ _stats:
   lastModifiedBy: lKC5x4Yf023Bizof
 system:
   ammo:
+    caliber: shotgun
     magClass: shotgun
     burst: false
     max: 2

@@ -1,7 +1,7 @@
-name: Heavy Machine Gun Ammo Belt
+name: Machine Gun Ammo Belt
 type: item
 img: systems/swnr/assets/icons/game-icons.net/item-icons/ammo-box.svg
-folder: C0XZGs5XpoD55XU7
+folder: rvD6mRxUC48bljtg
 flags: {}
 _stats:
   compendiumSource: null
@@ -11,19 +11,19 @@ _stats:
   systemId: swnr
   systemVersion: 2.3.1
   createdTime: 1754265737000
-  modifiedTime: 1754265737000
-  lastModifiedBy: swnrMagTooling00
+  modifiedTime: 1791331200000
+  lastModifiedBy: null
 system:
-  cost: 10
+  cost: 500
   description: >-
-    A linked ammunition belt feeding a heavy machine gun. Load it with the reload control; a swapped-out belt keeps its remaining rounds and can be relinked.
-  encumbrance: 1
+    A linked ammunition belt for heavy machine guns, holding 20 rounds of firing, twice a box magazine. Each round of firing eats 25 credits worth of projectile ammunition. Load it with the reload control; a swapped-out belt keeps its remaining rounds.
+  encumbrance: 3
   noEncReadied: false
   favorite: false
   quantity: 1
   bundle:
     bundled: false
-  tl: null
+  tl: 3
   location: stowed
   quality: stock
   container:
@@ -37,9 +37,9 @@ system:
     diceSize: d20
     diceBonus: +@str.mod+ceil(@lvl / 2)
   uses:
-    magClass: heavy-machine-gun
-    max: 10
-    value: 10
+    caliber: machine-gun
+    max: 20
+    value: 20
     emptyQuantity: 0
     consumable: magazine
     ammo: ammo
@@ -47,6 +47,6 @@ system:
 effects: []
 ownership:
   default: 0
-_id: UXHlOPufQOleUsIq
+_id: hQYE0NofTQu97FMW
 sort: 80000
-_key: '!items!UXHlOPufQOleUsIq'
+_key: '!items!hQYE0NofTQu97FMW'

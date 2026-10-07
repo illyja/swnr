@@ -18,7 +18,8 @@ system:
     burst: false
     max: 3
     suppress: false
-    type: special
+    type: ammo
+    caliber: launcher-grenade
     value: 3
     longReload: false
     current: null

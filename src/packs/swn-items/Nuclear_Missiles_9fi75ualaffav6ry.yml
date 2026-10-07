@@ -33,7 +33,7 @@ system:
   tl: 4
   ammo:
     max: 5
-    type: missile
+    type: ammo
     value: 5
   favorite: false
   destroyed: false

@@ -20,7 +20,8 @@ system:
     longReload: false
     max: 10
     suppress: true
-    type: special
+    type: ammo
+    caliber: machine-gun
     value: 10
     current: null
   cost: 5000

@@ -37,6 +37,7 @@ system:
     ac: 10
   ab: "0"
   ammo:
+    caliber: machine-gun
     longReload: false
     suppress: true
     type: ammo

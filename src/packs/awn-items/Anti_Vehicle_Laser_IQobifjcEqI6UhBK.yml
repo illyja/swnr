@@ -46,7 +46,9 @@ system:
   ammo:
     longReload: false
     suppress: false
-    type: typeBPower
+    type: ammo
+    caliber: type-b-cell
+    magazineOnly: true
     max: 15
     value: 15
     burst: false

@@ -18,7 +18,8 @@ system:
     burst: false
     max: 1
     suppress: false
-    type: special
+    type: ammo
+    caliber: arrow
     value: 1
     longReload: false
     current: null

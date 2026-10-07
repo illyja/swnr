@@ -113,6 +113,9 @@
 
           <div class="item-rounds item-prop flexrow">
             {{item.system.uses.value}} / {{item.system.uses.max}}
+              {{#if (and (eq item.system.uses.consumable "magazine") item.system.ammoProfile.label)}}
+                <span class="ammo-variant-badge">{{item.system.ammoProfile.label}}</span>
+              {{/if}}
               <!-- Buttons -->
               <a 
                 class="item-control"
@@ -135,7 +138,7 @@
           <!-- Controls (edit/delete/reload) -->
           <div class="item-controls item-prop">
             {{#if (eq ../type "weapon")}}
-              {{#if (ne item.system.ammo.type "none")}}
+              {{#if item.system.reloadable}}
                 <a
                   class="item-control item-reload"
                   data-action="reload"

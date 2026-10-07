@@ -601,7 +601,7 @@
           "ammo": {
             "label": "Ammo",
             "type": {
-              "label": "Ammo Type"
+              "label": "Ammo Use"
             },
             "max": {
               "label": "Max"
@@ -768,10 +768,14 @@
           "ammo": {
             "label": "Ammo",
             "type": {
-              "label": "Ammo Type"
+              "label": "Ammo Use"
             },
             "longReload": {
               "label": "Long Reload"
+            },
+            "magazineOnly": {
+              "label": "Magazine-fed only",
+              "hint": "Holds ammo only through a loaded magazine or power cell: no loose rounds, and empty without one (energy weapons)."
             },
             "burst": {
               "label": "Burst Fire"
@@ -871,6 +875,10 @@
           },
           "isHeavy": {
             "label": "Heavy"
+          },
+          "isAdvanced": {
+            "label": "Advanced",
+            "hint": "Advanced armor is immune to ammo marked 'stopped by advanced armor', such as bean bags."
           },
           "shieldMeleeACBonus": {
             "label": "Shield Melee AC Bonus"
@@ -1034,7 +1042,7 @@
           },
           "ammo": {
             "type": {
-              "label": "Ammo Type"
+              "label": "Ammo Use"
             },
             "max": {
               "label": "Ammo Maximum"
@@ -2069,7 +2077,8 @@
         "fullDamage": "Apply damage to selected token(s)",
         "halfDamage": "Apply half damage to selected token(s)",
         "fullHealing": "Apply healing to selected token(s)",
-        "fullDamageModified": "Apply modified damage to selected token(s)"
+        "fullDamageModified": "Apply modified damage to selected token(s)",
+      "nonLethalDamage": "Apply non-lethal damage to selected token(s): at 0 HP they fall Unconscious instead of dying"
       },
       "spike": {
         "fail3": "Catastrophic dimensional energy incursion.  Ship emerges around a star within 1d6 hexes  of the target destination with drive and all systems destroyed.",
@@ -2083,6 +2092,11 @@
     },
     "ammo": {
       "ammo": "Standard Ammo",
+      "limited": "Limited",
+      "disposable": "Disposable (single use)",
+      "notAmmo": "Not ammo",
+      "isAmmo": "Ammunition",
+      "standard": "Rounds",
       "missile": "Missiles",
       "none": "None",
       "special": "Specialty",
@@ -2185,13 +2199,17 @@
       "magazineUnsized": "This magazine/cell sizes itself when loaded into a weapon; load it via the weapon's reload control.",
       "noLooseRounds": "No loose rounds of the right ammo type to load into {name}.",
       "emptyAmmoRemoved": "{name} is empty and was removed.",
+      "disposableUsedUp": "{name} was used up and removed.",
+      "disposableNoReload": "{name} is single use and can't be reloaded.",
       "unload": "Unload weapon",
       "alreadyEmpty": "{name} is already empty.",
-      "needsCell": "{name} has no power cell loaded. Reload it with a cell.",
-      "noCellAvailable": "No charged power cell available for {name}. Shift+click to load a new one.",
+      "needsCell": "{name} has no magazine or power cell loaded. Reload it with one.",
+      "noCellAvailable": "No loaded magazine or charged power cell available for {name}. Shift+click to load a new one.",
       "looseRoundsName": "{type} (loose)",
       "magClass": "Magazine Class",
       "magClassHint": "e.g. combat-rifle (blank fits any)",
+      "caliber": "Caliber",
+      "caliberHint": "e.g. shotgun, type-a-cell (must match exactly; blank = standard rounds)",
       "noLoadedMagazine": "No compatible loaded magazine available for this weapon. Load rounds into a matching magazine, or shift+click to bypass.",
       "burst": "Use Burst Fire",
       "skillAddDamage": "Skill adds to damage",
@@ -2201,6 +2219,9 @@
         "hint": "When enabled, attacking compares the to-hit roll against each targeted token's AC, applies damage (or trauma/shock) to hits, and rolls any save. Requires damage auto-roll.",
         "miss": "miss",
         "shockAmount": "{n} shock",
+        "immune": "immune (armor)",
+        "damageNonLethal": "{n} dmg (non-lethal)",
+        "shockAmountNonLethal": "{n} shock (non-lethal)",
         "notify": {
           "rerolled": "{target}: re-rolled attack — {effect}"
         }
@@ -2217,6 +2238,28 @@
           "rerolled": "{target}: re-rolled Evasion save — {effect}"
         }
       }
+    },
+    "ammoProfile": {
+      "legend": "Ammo Profile",
+      "hint": "Leave everything blank for generic rounds. For specialty rounds (slugs, sabot, bean bags...) fill in only what they change; blank fields keep the weapon's own value.",
+      "loadedHint": "The variant currently loaded in this magazine. Loading rounds from a box replaces it.",
+      "label": "Name",
+      "labelHint": "blank = item name",
+      "damage": "Damage",
+      "hitMod": "To-Hit",
+      "range": "Range",
+      "traumaDie": "Trauma Die",
+      "traumaRating": "Trauma Rating",
+      "nonLethal": "Non-Lethal",
+      "nonLethalHint": "Drops a target to Unconscious instead of dying, unless it's a traumatic hit.",
+      "stoppedByAdvancedArmor": "Stopped by advanced armor",
+      "standard": "standard rounds",
+      "special": "Special ammo",
+      "loaded": "Loaded",
+      "nonLethalTag": "Non-lethal",
+      "swapTitle": "Change Ammo",
+      "swapPrompt": "{name} holds {n} {old}. Unload them back into boxes and load {new}?",
+      "wrongCaliber": "{ammo} doesn't fit {name} (different caliber)."
     },
     "titles": {
       "savingThrow": "{throwType} Saving Throw"
