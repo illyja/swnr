@@ -31,12 +31,12 @@ system:
     diceSize: null
     diceBonus: null
   uses:
-    max: 1
-    value: 1
+    max: 5
+    value: 5
     emptyQuantity: 0
-    consumable: none
-    ammo: none
-    keepEmpty: true
+    consumable: count
+    ammo: ammo
+    keepEmpty: false
 effects: []
 sort: 0
 ownership:
