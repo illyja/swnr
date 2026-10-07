@@ -17,7 +17,7 @@ system:
   cost: 250
   description: >-
     A compact box magazine for heavy machine guns, holding 10 rounds of firing. Each round of firing eats 25 credits worth of projectile ammunition. Load it with the reload control; a swapped-out magazine keeps its remaining rounds.
-  encumbrance: 0
+  encumbrance: 1
   noEncReadied: false
   favorite: false
   quantity: 1

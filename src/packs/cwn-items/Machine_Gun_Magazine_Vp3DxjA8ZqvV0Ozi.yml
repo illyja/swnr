@@ -17,9 +17,9 @@ system:
   cost: 50
   description: >-
     A compact box magazine for automatic rifles and heavy machine guns. Holds
-    half as much as a belt but packs away easily. Load it with the reload
+    half as much as a belt. Load it with the reload
     control; a swapped-out magazine keeps its remaining rounds.
-  encumbrance: 0
+  encumbrance: 1
   noEncReadied: false
   favorite: false
   quantity: 1

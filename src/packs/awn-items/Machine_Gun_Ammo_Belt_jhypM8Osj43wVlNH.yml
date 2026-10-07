@@ -17,7 +17,7 @@ system:
   cost: 40
   description: >-
     A linked ammunition belt for automatic rifles and heavy machine guns. It
-    holds twice as much as a box magazine but is bulkier. Load it with the
+    holds twice as much as a box magazine. Load it with the
     reload control; a swapped-out belt keeps its remaining rounds and can be
     relinked.
   encumbrance: 1
