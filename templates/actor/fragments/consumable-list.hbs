@@ -138,7 +138,7 @@
           <!-- Controls (edit/delete/reload) -->
           <div class="item-controls item-prop">
             {{#if (eq ../type "weapon")}}
-              {{#if (ne item.system.ammo.type "none")}}
+              {{#if item.system.reloadable}}
                 <a
                   class="item-control item-reload"
                   data-action="reload"

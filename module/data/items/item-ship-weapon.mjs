@@ -18,7 +18,7 @@ export default class SWNShipWeapon extends SWNVehicleItemBase {
     schema.hardpoint = SWNShared.requiredNumber(1);
     schema.qualities = SWNShared.requiredString("");
     schema.ammo = new fields.SchemaField({
-      type: SWNShared.stringChoices("none", CONFIG.SWN.ammoTypes),
+      type: SWNShared.stringChoices("none", CONFIG.SWN.shipAmmoTypes),
       max: SWNShared.requiredNumber(4),
       value: SWNShared.requiredNumber(4)
     });

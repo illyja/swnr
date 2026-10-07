@@ -16,13 +16,12 @@ _id: 29a6rlu9qwojxfow
 system:
   ab: 0
   ammo:
-    magClass: heavy-machine-gun
     burst: false
     longReload: false
     max: 10
     suppress: true
     type: ammo
-    caliber: heavy-machine-gun
+    caliber: machine-gun
     value: 10
     current: null
   cost: 5000

@@ -59,7 +59,7 @@
     <div class="resource-group grid-span-4"><!-- AMMO-->
       <div class="grid grid-4col" style="margin-top:0px;">
         <!-- Ammo selector -->
-        {{#if (and (ne system.ammo.type "none") (ne system.ammo.type "infinite"))}}
+        {{#if system.tracksAmmo}}
         <div>{{localize 'swnr.weapon.currentAmmo'}}: </div>
         <div class="grid-span-3">
           {{#if related.ammo}}
@@ -89,7 +89,7 @@
         <div class="resource grid-span-2">
           {{formGroup systemFields.ammo.fields.type value=system.ammo.type localize=true}}
         </div>
-        {{#if (and (ne system.ammo.type "none") (ne system.ammo.type "infinite"))}}
+        {{#if system.tracksAmmo}}
         <div class="resource">
           {{formGroup systemFields.ammo.fields.value value=system.ammo.value localize=true}}
         </div>
@@ -100,7 +100,7 @@
         <div class="resource grid-span-2"> </div>
         {{/if}}
       </div>
-      {{#if (and (ne system.ammo.type "none") (ne system.ammo.type "infinite"))}}
+      {{#if system.tracksAmmo}}
       <div class="grid grid-4col" style="margin-top:0px;">
         <div class="resource grid-span-2">
           <label class="resource-label">{{localize 'swnr.weapon.magClass'}}</label>
@@ -119,7 +119,7 @@
         {{formGroup systemFields.ammo.fields.longReload value=system.ammo.longReload localize=true widget=checkWidget}}
         {{formGroup systemFields.ammo.fields.suppress value=system.ammo.suppress localize=true widget=checkWidget}}
         {{formGroup systemFields.ammo.fields.burst value=system.ammo.burst localize=true widget=checkWidget}}
-        {{#if (and (ne system.ammo.type "none") (ne system.ammo.type "infinite"))}}
+        {{#if system.tracksAmmo}}
         {{formGroup systemFields.ammo.fields.magazineOnly value=system.ammo.magazineOnly localize=true widget=checkWidget}}
         {{/if}}
       </div>

@@ -18,7 +18,7 @@ system:
     burst: false
     max: 0
     suppress: false
-    type: none
+    type: disposable
     value: 0
     longReload: false
     current: null

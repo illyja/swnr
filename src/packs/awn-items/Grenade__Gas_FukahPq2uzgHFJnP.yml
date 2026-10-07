@@ -41,8 +41,7 @@ system:
   ammo:
     longReload: false
     suppress: false
-    type: ammo
-    caliber: grenade
+    type: disposable
     max: 1
     value: 1
     burst: false

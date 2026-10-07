@@ -740,6 +740,11 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
         ui.notifications.error("This weapon does not use ammo.");
         return;
       }
+      // Disposable weapons are the ammo themselves: nothing to reload.
+      if (item.system.isDisposable) {
+        ui.notifications.info(game.i18n.format("swnr.weapon.disposableNoReload", { name: item.name }));
+        return;
+      }
 
       const ammoMax = item.system.ammo?.max;
       if (ammoMax == null) {
@@ -803,11 +808,17 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
       // Same caliber rule as loose rounds: a magazine with a caliber only fits
       // a weapon of that caliber; an uncalibered magazine fits any weapon.
       const weaponCaliber = item.system.ammo.caliber ?? null;
+      // A magazine sitting in another weapon isn't spare (machine-gun belts
+      // fit both the automatic rifle and the HMG).
+      const inOtherWeapons = new Set(this.actor.items
+        .filter((w) => w.type === 'weapon' && w.id !== item.id && w.system.ammo?.loadedMagazine)
+        .map((w) => w.system.ammo.loadedMagazine));
       const spareMags = this.actor.items.filter(
         (i) => i.type === 'item'
           && i.system.uses?.consumable === 'magazine'
           && i.system.uses?.ammo === ammoType
           && i.id !== loadedMagId
+          && !inOtherWeapons.has(i.id)
           && magClassFits(i)
           && caliberFits(i.system.uses?.caliber, weaponCaliber)
       );
@@ -1113,7 +1124,7 @@ export class SWNBaseSheet extends api.HandlebarsApplicationMixin(
       const item = this._getEmbeddedDocument(target);
       if (!item || item.type !== 'weapon') return;
       const ammo = item.system.ammo;
-      if (!ammo || ammo.type === 'none' || ammo.type === 'infinite') return;
+      if (!item.system.tracksAmmo) return;
       const speak = (text) => ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: this.actor }),
         content: `<p>${text}</p>`,

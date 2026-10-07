@@ -20,8 +20,7 @@ system:
     longReload: false
     max: 1
     suppress: false
-    type: ammo
-    caliber: grenade
+    type: disposable
     value: 1
     current: null
   cost: 25

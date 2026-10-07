@@ -274,7 +274,7 @@
             {{!-- Single Rounds column if ammo != none --}}
             {{#if (eq item.type "weapon")}}
               <div class="item-rounds item-prop">
-                {{item.system.ammo.value}} / {{item.system.ammo.max}}
+                {{#if item.system.isDisposable}}&times;{{item.system.quantity}}{{else}}{{item.system.ammo.value}} / {{item.system.ammo.max}}{{/if}}
               </div>
             {{/if}}
 
@@ -300,7 +300,7 @@
             <!-- Controls (edit/delete/reload) -->
             <div class="item-controls item-prop">
               {{#if (eq ../type "weapon")}}
-                {{#if (ne item.system.ammo.type "none")}}
+                {{#if item.system.reloadable}}
                   <a
                     class="item-control item-reload"
                     data-action="reload"

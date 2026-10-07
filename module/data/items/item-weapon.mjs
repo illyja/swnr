@@ -134,8 +134,23 @@ export default class SWNWeapon extends SWNBaseGearItem {
   get requiresCell() {
     const actorType = this.parent?.actor?.type;
     return !!this.ammo?.magazineOnly
-      && this.ammo.type !== "none" && this.ammo.type !== "infinite"
+      && this.tracksAmmo
       && (actorType === "character" || actorType === "npc");
+  }
+
+  /** Limited ammo: a round count that is spent, reloaded and unloaded. */
+  get tracksAmmo() {
+    return this.ammo?.type === "ammo";
+  }
+
+  /** The weapon is itself the ammunition: using it spends one (grenades, mines). */
+  get isDisposable() {
+    return this.ammo?.type === "disposable";
+  }
+
+  /** Shows the reload control: limited (and, as before, unlimited) ammo. */
+  get reloadable() {
+    return this.ammo?.type === "ammo" || this.ammo?.type === "infinite";
   }
 
   prepareDerivedData() {
@@ -220,7 +235,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
    */
   async consumeAmmo(rounds) {
     if (!rounds || rounds <= 0) return;
-    if (this.ammo.type === "none" || this.ammo.type === "infinite") return;
+    if (!this.tracksAmmo) return;
     const mag = this.loadedMagazineItem;
     if (mag) {
       const newVal = Math.max(0, mag.system.uses.value - rounds);
@@ -270,16 +285,34 @@ export default class SWNWeapon extends SWNBaseGearItem {
     return (
       this.ammo.burst &&
       (this.ammo.type === "infinite" ||
-        (this.ammo.type !== "none" && this.ammo.value >= 3))
+        (this.tracksAmmo && this.ammo.value >= 3))
     );
   }
 
   get hasAmmo() {
+    if (this.isDisposable) return (this.quantity ?? 1) > 0;
     return (
       this.ammo.type === "none" ||
       this.ammo.type === "infinite" ||
       this.ammo.value > 0
     );
+  }
+
+  /**
+   * Spend one use of a disposable weapon: one off the stack, and the last one
+   * is removed (like an emptied box of loose rounds). Called after the attack's
+   * chat message exists, since that still needs the item.
+   */
+  async spendDisposable() {
+    const item = this.parent;
+    if (!this.isDisposable || !item?.actor) return;
+    const qty = this.quantity ?? 1;
+    if (qty > 1) {
+      await item.update({ "system.quantity": qty - 1 });
+    } else {
+      ui.notifications?.info(game.i18n.format("swnr.weapon.disposableUsedUp", { name: item.name }));
+      await item.delete();
+    }
   }
 
   safeDamageRoll(damageRoll) {
@@ -311,8 +344,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
     if (
       useBurst &&
       this.ammo.type !== "infinite" &&
-      this.ammo.type !== "none" &&
-      this.ammo.value < 3
+      (this.ammo.type !== "ammo" || this.ammo.value < 3)
     ) {
       ui.notifications?.error(
         `Your ${item.name} is does not have enough ammo to burst!`
@@ -527,10 +559,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
     };
     const rollMode = getChatMessageMode();
     const diceData = Roll.fromTerms([foundry.dice.terms.PoolTerm.fromRolls(rollArray)]);
-    if (
-      this.ammo.type !== "none" &&
-      this.ammo.type !== "infinite"
-    ) {
+    if (this.tracksAmmo) {
       const spent = 1 + burstFire;
       const projected = Math.max(0, this.ammo.value - spent);
       await this.consumeAmmo(spent);
@@ -604,6 +633,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
     if (targetResults && chatMessage) {
       await applyTargetResults(chatMessage, this.parent);
     }
+    await this.spendDisposable();
   }
 
   /**
@@ -633,7 +663,7 @@ export default class SWNWeapon extends SWNBaseGearItem {
 
     // Suppression spends double the usual single-shot ammunition (2 rounds).
     const SUPPRESS_COST = 2;
-    const finiteAmmo = this.ammo.type !== "none" && this.ammo.type !== "infinite";
+    const finiteAmmo = this.tracksAmmo;
     if (finiteAmmo && this.ammo.value < SUPPRESS_COST) {
       ui.notifications?.error(`Your ${item.name} does not have enough ammo to suppress!`);
       return;
@@ -739,10 +769,10 @@ export default class SWNWeapon extends SWNBaseGearItem {
     });
     const ammo = this.ammo;
     const burstFireHasAmmo =
-      ammo.type !== "none" && ammo.burst && ammo.value >= 3;
+      ammo.type !== "none" && !this.isDisposable && ammo.burst && ammo.value >= 3;
     // Suppressive fire is offered when the world rule is on and the weapon supports it.
     const canSuppress =
-      game.settings.get("swnr", "suppressiveFire") !== "off" && ammo.suppress;
+      game.settings.get("swnr", "suppressiveFire") !== "off" && ammo.suppress && !this.isDisposable;
 
     let dmgBonus = 0;
 

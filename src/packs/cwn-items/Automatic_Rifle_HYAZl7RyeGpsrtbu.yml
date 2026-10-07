@@ -19,7 +19,7 @@ system:
     max: 10
     suppress: true
     type: ammo
-    caliber: automatic-rifle
+    caliber: machine-gun
     value: 10
     longReload: false
     current: null

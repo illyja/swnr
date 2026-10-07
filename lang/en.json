@@ -2093,6 +2093,7 @@
     "ammo": {
       "ammo": "Standard Ammo",
       "limited": "Limited",
+      "disposable": "Disposable (single use)",
       "notAmmo": "Not ammo",
       "isAmmo": "Ammunition",
       "standard": "Rounds",
@@ -2198,6 +2199,8 @@
       "magazineUnsized": "This magazine/cell sizes itself when loaded into a weapon; load it via the weapon's reload control.",
       "noLooseRounds": "No loose rounds of the right ammo type to load into {name}.",
       "emptyAmmoRemoved": "{name} is empty and was removed.",
+      "disposableUsedUp": "{name} was used up and removed.",
+      "disposableNoReload": "{name} is single use and can't be reloaded.",
       "unload": "Unload weapon",
       "alreadyEmpty": "{name} is already empty.",
       "needsCell": "{name} has no magazine or power cell loaded. Reload it with one.",

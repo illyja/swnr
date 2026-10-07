@@ -18,8 +18,7 @@ system:
     burst: false
     max: 1
     suppress: false
-    type: ammo
-    caliber: rocket
+    type: disposable
     value: 1
     longReload: false
     current: null

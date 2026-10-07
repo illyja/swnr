@@ -63,11 +63,20 @@ SWN.fuelTypes = {
   typeBPower: 'swnr.ammo.typeBPower',
 };
 
-// How a weapon (or item) uses ammunition: not at all, a limited supply that
-// is spent and reloaded, or an unlimited one. What *kind* of ammunition fits
-// is the caliber's job (see helpers/ammo-profile.mjs). The limited key stays
-// "ammo" so existing data needs no migration.
+// How a weapon uses ammunition: not at all, a limited supply that is spent
+// and reloaded, an unlimited one, or disposable -- the weapon itself is spent
+// when used (grenades, mines, one-shot rocket launchers). What *kind* of
+// ammunition fits is the caliber's job (see helpers/ammo-profile.mjs). The
+// limited key stays "ammo" so existing data needs no migration.
 SWN.ammoTypes = {
+  none: 'swnr.ammo.none',
+  ammo: 'swnr.ammo.limited',
+  infinite: 'swnr.ammo.infinite',
+  disposable: 'swnr.ammo.disposable',
+};
+
+// Ship/vehicle weapons: no disposable mode.
+SWN.shipAmmoTypes = {
   none: 'swnr.ammo.none',
   ammo: 'swnr.ammo.limited',
   infinite: 'swnr.ammo.infinite',
